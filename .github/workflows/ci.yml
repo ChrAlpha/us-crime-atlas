@@ -27,12 +27,6 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-      - name: Typecheck
-        run: npm run typecheck
-      - name: Unit tests with coverage thresholds
-        run: npm run test:unit
-      - name: Production build
-        run: npm run build
       - name: Upload generated lockfile
         uses: actions/upload-artifact@v4
         with:
@@ -40,6 +34,12 @@ jobs:
           path: package-lock.json
           if-no-files-found: error
           retention-days: 3
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests with coverage thresholds
+        run: npm run test:unit
+      - name: Production build
+        run: npm run build
       - name: Upload unit coverage
         if: always()
         uses: actions/upload-artifact@v4

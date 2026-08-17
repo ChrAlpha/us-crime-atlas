@@ -1,4 +1,5 @@
-import maplibregl, {
+import * as maplibregl from 'maplibre-gl';
+import {
   type GeoJSONSource,
   type LayerSpecification,
   type Map as MapLibreMap,
@@ -203,7 +204,8 @@ function ensureAtlasLayers(map: MapLibreMap) {
 
   // Symbol layers require a glyph source. The offline acceptance-test style deliberately
   // has no external resources, so cluster circles remain usable without numeric labels.
-  if (map.getStyle().glyphs && !map.getLayer(CLUSTER_LABEL_LAYER)) {
+  const currentStyle = map.getStyle() as StyleSpecification;
+  if (currentStyle.glyphs && !map.getLayer(CLUSTER_LABEL_LAYER)) {
     map.addLayer({
       id: CLUSTER_LABEL_LAYER,
       type: 'symbol',
@@ -325,8 +327,9 @@ export function AtlasMap({
         const clusterId = Number(feature.properties?.cluster_id);
         if (Number.isFinite(clusterId) && feature.geometry.type === 'Point') {
           const source = map.getSource(SOURCE_INCIDENTS) as GeoJSONSource;
+          const clusterCoordinates = feature.geometry.coordinates as [number, number];
           void source.getClusterExpansionZoom(clusterId).then((zoom) => {
-            map.easeTo({ center: feature.geometry.coordinates as [number, number], zoom, duration: 450 });
+            map.easeTo({ center: clusterCoordinates, zoom, duration: 450 });
           });
         }
         return;
