@@ -276,7 +276,6 @@ export function AtlasMap({
       zoom: 12.4,
       minZoom: 3,
       maxZoom: 18,
-      attributionControl: true,
       dragRotate: false,
       pitchWithRotate: false,
     });
