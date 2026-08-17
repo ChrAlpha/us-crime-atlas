@@ -9,7 +9,7 @@ const patterns:Array<[RegExp,CrimeCategory]>=[
   [/(robbery|carjacking)/i,'robbery'],
   [/(assault|battery|aggravated|simple assault)/i,'assault'],
   [/(burglary|breaking[ -]?and[ -]?entering|residential break)/i,'burglary'],
-  [/(motor vehicle theft|vehicle theft|auto theft|grand larceny.*auto|stolen vehicle)/i,'vehicle'],
+  [/(motor vehicle (?:theft|larceny)|vehicle theft|auto theft|grand larceny.*(?:auto|motor vehicle)|stolen vehicle)/i,'vehicle'],
   [/(weapon|firearm|gun offense)/i,'weapons'],
   [/(theft|larceny|shoplifting|stolen property|pickpocket|purse snatch)/i,'theft'],
 ];

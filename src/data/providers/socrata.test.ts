@@ -104,7 +104,7 @@ describe('Socrata provider boundary', () => {
     expect(batch.incidents[0]?.id).toBe('valid');
     expect(batch.provider).toBe(meta);
     expect(batch.truncated).toBe(false);
-    expect(batch.requestUrl).toContain('$where=');
+    expect(new URL(batch.requestUrl).searchParams.has('$where')).toBe(true);
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 
