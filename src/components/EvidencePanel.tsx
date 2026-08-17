@@ -179,13 +179,17 @@ function AnalysisContent({
           <h3>Recent rhythm</h3>
           <span>Last {analysis.dailyActivity.length} days</span>
         </div>
-        <div className="timeline" aria-label="Daily count timeline">
+        <div
+          className="timeline"
+          role="img"
+          aria-label={`Daily report count timeline for the last ${analysis.dailyActivity.length} days. ${analysis.currentCount} reports total.`}
+        >
           {analysis.dailyActivity.map((day) => {
             const height = Math.max(4, (day.count / maxDaily) * 100);
             const style = { '--bar-height': `${height}%` } as CSSProperties;
             return (
               <span
-                aria-label={`${day.date}: ${day.count} reports`}
+                aria-hidden="true"
                 className="timeline__bar"
                 key={day.date}
                 style={style}
