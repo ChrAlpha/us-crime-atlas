@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { mapChicagoRow } from './chicago';
 import { mapNewYorkRow } from './newYork';
+import { mapLosAngelesRow, mapSeattleRow, mapWashingtonDcFeature } from './nationwide';
 import { mapSanFranciscoRow } from './sanFrancisco';
 
 describe('official provider row adapters', () => {
@@ -73,11 +74,87 @@ describe('official provider row adapters', () => {
     expect(incident?.description).toContain('Open or Active');
   });
 
+  it('normalizes Los Angeles NIBRS hundred-block fields', () => {
+    const incident = mapLosAngelesRow({
+      uniquenibrno: 'LA-1001-120',
+      caseno: 'LA-1001',
+      date_occ: '2026-08-10T00:00:00.000',
+      time_occ: '2315',
+      nibr_description: 'ROBBERY',
+      premis_desc: 'STREET',
+      hndrdth_loc_chk: '6800 HOLLYWOOD BL',
+      area_name: 'Hollywood',
+      hndrdth_lat: '34.1016',
+      hndrdth_lon: '-118.3406',
+    });
+    expect(incident).toMatchObject({
+      id: 'los-angeles:LA-1001-120:LA-1001',
+      category: 'robbery',
+      group: 'violent',
+      localHour: 23,
+      occurredAt: '2026-08-10T23:15:00',
+      coordinates: [-118.3406, 34.1016],
+      locationLabel: '6800 HOLLYWOOD BL · Hollywood',
+    });
+  });
+
+  it('normalizes Seattle one-hundred-block offenses using the current schema', () => {
+    const incident = mapSeattleRow({
+      offense_id: 'SEA-1',
+      report_number: 'R-1',
+      offense_date: '2026-08-10T22:15:00.000',
+      offense_sub_category: 'AGGRAVATED ASSAULT',
+      nibrs_crime_against_category: 'PERSON',
+      block_address: '1XX PIKE ST',
+      neighborhood: 'DOWNTOWN COMMERCIAL',
+      latitude: '47.6097',
+      longitude: '-122.3422',
+    });
+    expect(incident).toMatchObject({
+      id: 'seattle:SEA-1:R-1',
+      category: 'assault',
+      group: 'violent',
+      precision: 'block',
+      locationLabel: '1XX PIKE ST · DOWNTOWN COMMERCIAL',
+    });
+  });
+
+  it('normalizes Washington DC ArcGIS features and case-insensitive attributes', () => {
+    const epoch = Date.parse('2026-08-10T23:00:00Z');
+    const incident = mapWashingtonDcFeature({
+      attributes: {
+        ccn: 'DC-1',
+        objectid: 8,
+        start_date: epoch,
+        offense: 'ROBBERY',
+        method: 'GUN',
+        block: '100 BLOCK PENNSYLVANIA AVE NW',
+        neighborhood_cluster: 'Cluster 2',
+        latitude: 38.8895,
+        longitude: -77.0365,
+      },
+      geometry: { x: -77.0365, y: 38.8895 },
+    });
+    expect(incident).toMatchObject({
+      id: 'washington-dc:DC-1:8',
+      category: 'robbery',
+      group: 'violent',
+      coordinates: [-77.0365, 38.8895],
+      precision: 'block',
+    });
+  });
+
   it('drops rows without usable identifiers, dates, or coordinates', () => {
     expect(mapChicagoRow({ id: 'x', date: '2026-08-10T00:00:00', latitude: 'bad', longitude: '-87' })).toBeNull();
     expect(mapChicagoRow({ date: '2026-08-10T00:00:00', latitude: '41', longitude: '-87' })).toBeNull();
     expect(mapNewYorkRow({ cmplnt_num: 'x', cmplnt_fr_dt: '', latitude: '40', longitude: '-73' })).toBeNull();
     expect(mapSanFranciscoRow({ row_id: 'x', incident_datetime: '2026-08-10T00:00:00', latitude: '37' })).toBeNull();
+    expect(mapLosAngelesRow({ uniquenibrno: 'x', date_occ: '2026-08-10T00:00:00', hndrdth_lat: '0', hndrdth_lon: '0' })).toBeNull();
+    expect(mapSeattleRow({ offense_id: 'x', offense_date: '2026-08-10T00:00:00', latitude: 'REDACTED', longitude: 'REDACTED' })).toBeNull();
+    expect(mapWashingtonDcFeature({
+      attributes: { OBJECTID: 1, START_DATE: 'bad' },
+      geometry: { x: -77, y: 39 },
+    })).toBeNull();
   });
 
   it('uses source fallbacks when optional labels are absent', () => {

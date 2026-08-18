@@ -7,10 +7,19 @@ function sourceDate(daysAgo: number, hour = 12) {
     date: `${day}T00:00:00.000`,
     time: `${String(hour).padStart(2, '0')}:15:00`,
     timestamp: `${day}T${String(hour).padStart(2, '0')}:15:00.000`,
+    epoch: Date.parse(`${day}T${String(hour).padStart(2, '0')}:15:00.000Z`),
   };
 }
 
-const nycPoint = (id: string, daysAgo: number, category: string, description: string, longitude: number, latitude: number, hour = 12) => {
+const nycPoint = (
+  id: string,
+  daysAgo: number,
+  category: string,
+  description: string,
+  longitude: number,
+  latitude: number,
+  hour = 12,
+) => {
   const date = sourceDate(daysAgo, hour);
   return {
     cmplnt_num: id,
@@ -73,6 +82,63 @@ export const chicagoFixture = [
   ),
 ];
 
+const dcFeature = (
+  id: number,
+  daysAgo: number,
+  offense: string,
+  longitude: number,
+  latitude: number,
+  method = 'OTHERS',
+) => ({
+  attributes: {
+    CCN: `DC-${id}`,
+    OBJECTID: id,
+    START_DATE: sourceDate(daysAgo, 21).epoch,
+    REPORT_DAT: sourceDate(daysAgo, 22).epoch,
+    OFFENSE: offense,
+    METHOD: method,
+    BLOCK: '100 BLOCK PENNSYLVANIA AVE NW',
+    NEIGHBORHOOD_CLUSTER: 'Cluster 2',
+    LATITUDE: latitude,
+    LONGITUDE: longitude,
+  },
+  geometry: { x: longitude, y: latitude },
+});
+
+export const dcFixture = {
+  exceededTransferLimit: false,
+  features: [
+    dcFeature(1, 1, 'ROBBERY', -77.0367, 38.8894, 'GUN'),
+    dcFeature(2, 2, 'ASSAULT W/DANGEROUS WEAPON', -77.034, 38.891),
+    dcFeature(3, 3, 'THEFT F/AUTO', -77.039, 38.887),
+    dcFeature(4, 4, 'MOTOR VEHICLE THEFT', -77.032, 38.888),
+    dcFeature(20, 35, 'ROBBERY', -77.036, 38.889),
+    dcFeature(30, 2, 'THEFT/OTHER', -77.015, 38.89),
+    dcFeature(31, 3, 'THEFT/OTHER', -77.014, 38.891),
+    dcFeature(32, 4, 'ASSAULT W/DANGEROUS WEAPON', -77.013, 38.889),
+    dcFeature(33, 5, 'THEFT/OTHER', -77.012, 38.892),
+  ],
+};
+
+const adaptiveMetadata = (fields: string[]) => ({
+  columns: fields.map((fieldName) => ({ fieldName })),
+});
+
+function emptyAdaptiveSource(page: Page, datasetId: string, fields: string[]) {
+  return Promise.all([
+    page.route(`**/api/views/${datasetId}`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(adaptiveMetadata(fields)),
+      }),
+    ),
+    page.route(`**/resource/${datasetId}.json?*`, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+    ),
+  ]);
+}
+
 export async function mockOfficialSources(page: Page, mode: 'success' | 'error' = 'success') {
   await page.route('**/resource/5uac-w243.json?*', async (route) => {
     if (mode === 'error') {
@@ -81,13 +147,46 @@ export async function mockOfficialSources(page: Page, mode: 'success' | 'error' 
     }
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(nycFixture) });
   });
-  await page.route('**/resource/ijzp-q8t2.json?*', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(chicagoFixture) });
-  });
-  await page.route('**/resource/wg3w-h783.json?*', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-  });
-  await page.route('**/nominatim.openstreetmap.org/**', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-  });
+  await page.route('**/resource/ijzp-q8t2.json?*', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(chicagoFixture) }),
+  );
+  await page.route('**/resource/wg3w-h783.json?*', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+  );
+
+  await emptyAdaptiveSource(page, 'k7nn-b2ep', [
+    'caseno',
+    'uniquenibrno',
+    'date_occ',
+    'time_occ',
+    'area_name',
+    'nibr_description',
+    'crime_against',
+    'premis_desc',
+    'hndrdth_loc_chk',
+    'hndrdth_lat',
+    'hndrdth_lon',
+  ]);
+  await emptyAdaptiveSource(page, 'tazs-3rd5', [
+    'report_number',
+    'report_date_time',
+    'offense_id',
+    'offense_date',
+    'nibrs_group_a_b',
+    'nibrs_crime_against_category',
+    'offense_sub_category',
+    'block_address',
+    'latitude',
+    'longitude',
+    'precinct',
+    'neighborhood',
+  ]);
+
+  await page.route('**/FEEDS/MPD/FeatureServer/41/query?*', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(dcFixture) }),
+  );
+
+  await page.route('**/nominatim.openstreetmap.org/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+  );
 }
