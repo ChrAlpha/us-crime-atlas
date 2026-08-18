@@ -15,7 +15,7 @@
     "test": "vitest",
     "test:unit": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "test:data": "node scripts/check-data-sources.mjs",
+    "test:data": "node scripts/check-data-sources.mjs && node scripts/check-runtime-queries.mjs",
     "check": "npm run typecheck && npm run test:unit && npm run build"
   },
   "dependencies": {
