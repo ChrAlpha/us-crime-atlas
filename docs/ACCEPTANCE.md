@@ -5,6 +5,7 @@ A change is release-ready only when the relevant automated gates pass and the vi
 ## Functional
 
 - [ ] A supported featured place selects the correct local provider.
+- [ ] All nine registered provider bounds resolve to the intended agency and do not overlap an unrelated city.
 - [ ] A map click updates the analysis point and URL state.
 - [ ] Place search is submitted explicitly; it does not issue per-keystroke requests.
 - [ ] Radius options of 500 m, 1 km, and 2 km update the circle and analysis.
@@ -18,18 +19,26 @@ A change is release-ready only when the relevant automated gates pass and the vi
 
 ## Data integrity
 
-- [ ] Chicago, New York City, and San Francisco live endpoints return the required identity, date, category, latitude, and longitude fields.
-- [ ] Adapter tests cover representative violent, property, and vehicle classifications.
-- [ ] Invalid identifiers or coordinates are dropped.
-- [ ] Circle and annulus membership use Haversine distance rather than the request bounding box.
+- [ ] New York City, Washington DC, Baltimore, Chicago, Nashville, Austin, Los Angeles, San Francisco, and Seattle live endpoints resolve the required identity, date, category, and geometry semantics.
+- [ ] Adaptive Socrata providers resolve only explicitly reviewed aliases from official dataset metadata.
+- [ ] A missing required Socrata semantic fails closed rather than guessing another column.
+- [ ] Socrata providers support either a reviewed latitude/longitude pair or a reviewed Point field.
+- [ ] Washington DC resolves the intended official current-year DCGIS Feature Service and not merely the first similarly titled ArcGIS result.
+- [ ] ArcGIS transfer-limit responses are surfaced as potentially truncated evidence.
+- [ ] Adapter tests cover representative violent, property, vehicle, and weapons classifications across both backend families.
+- [ ] Invalid identifiers, dates, zero coordinates, and out-of-range coordinates are dropped.
+- [ ] Compound and fallback row identities are deterministic and provider-namespaced.
+- [ ] Circle and annulus membership use Haversine distance rather than the request envelope.
 - [ ] Current and previous windows do not overlap.
 - [ ] Raw counts remain visible beside weighted comparisons.
 - [ ] Provider cadence, lag, precision, and coverage caveats are visible.
-- [ ] No production fallback creates synthetic incident records.
+- [ ] No production fallback creates synthetic incident records or substitutes a citywide/national proxy.
 
 ## Responsive UI and interaction
 
 - [ ] Desktop at 1440 × 960 keeps map, explorer, and evidence inspector usable simultaneously.
+- [ ] The nine-place featured strip remains horizontally scrollable without page-level overflow.
+- [ ] The source dialog remains usable with nine provider cards at desktop, tablet, and mobile widths.
 - [ ] iPhone-class viewport keeps 44 px-class primary touch targets and has no horizontal overflow.
 - [ ] The mobile evidence sheet supports peek, half, and full states.
 - [ ] Search and analysis controls remain reachable without trapping page scroll.
@@ -44,6 +53,7 @@ A change is release-ready only when the relevant automated gates pass and the vi
 - [ ] Loading, error, and update states are announced.
 - [ ] Dialog has a name, modal semantics, Escape close behavior, and an explicit close button.
 - [ ] Keyboard focus is visible.
+- [ ] Provider cards and official-source links have distinct accessible names.
 - [ ] Axe reports no serious or critical violations outside third-party MapLibre controls/canvas.
 
 ## Automated gates
@@ -51,8 +61,10 @@ A change is release-ready only when the relevant automated gates pass and the vi
 - [ ] `npm run typecheck`
 - [ ] `npm run test:unit` with configured coverage thresholds
 - [ ] `npm run build`
-- [ ] `npm run test:data`
+- [ ] `npm run test:data` across all nine official city contracts
 - [ ] `npm run test:e2e` in desktop and mobile Chromium projects
+- [ ] Browser acceptance explicitly exercises one Socrata and one ArcGIS provider
+- [ ] Scheduled `.github/workflows/provider-health.yml` can run manually and is configured for twice-weekly checks
 
 ## Visual review evidence
 
@@ -64,4 +76,4 @@ The browser job retains:
 - Playwright HTML report;
 - trace, video, and failure screenshot when a retry or failure occurs.
 
-Review screenshots for overlap, clipped text, cramped controls, accidental red-heavy styling, unreadable map points, and mismatched light/dark surfaces before merge.
+Review screenshots for overlap, clipped text, cramped controls, accidental red-heavy styling, unreadable map points, featured-place truncation, source-card density, and mismatched light/dark surfaces before merge.
