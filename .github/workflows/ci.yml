@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - 'feat/**'
+      - 'fix/**'
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Typecheck, unit tests, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests with coverage thresholds
+        run: npm run test:unit
+      - name: Production build
+        run: npm run build
+      - name: Upload unit coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: unit-coverage-${{ github.sha }}
+          path: coverage
+          if-no-files-found: ignore
+          retention-days: 7
+
+  data-contract:
+    name: Live official source contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Validate city feeds and MapLibre style
+        run: npm run test:data
+
+  browser-acceptance:
+    name: Desktop and mobile browser acceptance
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run Playwright acceptance suite
+        run: npm run test:e2e
+      - name: Upload browser report and screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-acceptance-${{ github.sha }}
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+          retention-days: 14
