@@ -59,9 +59,26 @@ test('updates provider, filters, radius, URL state, and methodology dialog', asy
     await page.getByRole('button', { name: 'Sources & methodology' }).click();
     await expect(page.getByRole('dialog', { name: 'Sources & methodology' })).toBeVisible();
     await expect(page.getByText('Transparent local comparison')).toBeVisible();
+    await expect(page.getByText('Los Angeles, California')).toBeVisible();
+    await expect(page.getByText('Seattle, Washington')).toBeVisible();
     await page.getByRole('button', { name: 'Close sources and methodology' }).click();
   }
 
+  await expectNoHorizontalOverflow(page);
+});
+
+test('loads an ArcGIS-backed official city feed', async ({ page }) => {
+  await mockOfficialSources(page);
+  await page.goto('/?e2e=1');
+  await expect(page.getByTestId('reported-count')).toHaveText('5');
+
+  await page.getByRole('button', { name: 'National Mall' }).click();
+  await expect(
+    page.getByText('Metropolitan Police Department of the District of Columbia').first(),
+  ).toBeVisible();
+  await expect(page.getByText(`Crime Incidents in ${new Date().getUTCFullYear()}`)).toBeVisible();
+  await expect(page.getByTestId('reported-count')).toHaveText('4');
+  await expect(page).toHaveURL(/lat=38\.8895/);
   await expectNoHorizontalOverflow(page);
 });
 
