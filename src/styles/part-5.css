@@ -32,6 +32,7 @@
   }
 
   .search-panel {
+    z-index: 45;
     top: calc(max(9px, env(safe-area-inset-top)) + 66px);
     right: 9px;
     bottom: auto;
