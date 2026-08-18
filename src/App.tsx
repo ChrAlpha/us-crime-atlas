@@ -130,6 +130,7 @@ export default function App() {
 
   return (
     <main className="atlas-app">
+      <a className="skip-link" href="#place-query">Skip to place search</a>
       <AtlasMap
         center={atlasState.place.coordinates}
         incidents={incidentState.analysis?.mapIncidents ?? []}

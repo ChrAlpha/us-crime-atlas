@@ -1,4 +1,4 @@
-import { useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
+import type { CSSProperties } from 'react';
 import { BAND_COPY } from '../domain/analysis';
 import { CATEGORY_LABELS } from '../domain/categories';
 import { formatSourceTimestamp } from '../domain/time';
@@ -31,8 +31,6 @@ interface EvidencePanelProps {
   onRefresh(): void;
   onOpenSources(): void;
 }
-
-type SheetMode = 'peek' | 'half' | 'full';
 
 function percent(value: number) {
   return `${Math.round(value * 100)}%`;
@@ -307,32 +305,6 @@ export function EvidencePanel({
   onRefresh,
   onOpenSources,
 }: EvidencePanelProps) {
-  const [sheetMode, setSheetMode] = useState<SheetMode>('half');
-  const dragStart = useRef<number | null>(null);
-  const suppressClick = useRef(false);
-
-  const cycleSheet = () => {
-    if (suppressClick.current) {
-      suppressClick.current = false;
-      return;
-    }
-    setSheetMode((mode) => (mode === 'half' ? 'full' : mode === 'full' ? 'peek' : 'half'));
-  };
-
-  const startDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    dragStart.current = event.clientY;
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-
-  const finishDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (dragStart.current === null) return;
-    const delta = event.clientY - dragStart.current;
-    dragStart.current = null;
-    if (Math.abs(delta) < 28) return;
-    suppressClick.current = true;
-    setSheetMode(delta < 0 ? 'full' : 'peek');
-  };
-
   let body = null;
   if (!provider) {
     body = <UnsupportedState onOpenSources={onOpenSources} place={place} />;
@@ -360,21 +332,10 @@ export function EvidencePanel({
 
   return (
     <aside
-      className={`evidence-panel evidence-panel--${sheetMode} glass-panel`}
+      className="evidence-panel glass-panel"
       data-testid="evidence-panel"
       aria-label="Observed incident evidence"
     >
-      <button
-        aria-expanded={sheetMode === 'full'}
-        aria-label="Resize evidence panel"
-        className="sheet-handle"
-        onClick={cycleSheet}
-        onPointerDown={startDrag}
-        onPointerUp={finishDrag}
-        type="button"
-      >
-        <span />
-      </button>
       <header className="evidence-header">
         <div>
           <span className="eyebrow">Observed evidence</span>

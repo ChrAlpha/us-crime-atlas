@@ -1,0 +1,418 @@
+/* Usability pass: clearer desktop hierarchy and a non-overlapping mobile flow. */
+
+:root {
+  --surface: oklch(0.985 0.006 95 / 0.96);
+  --surface-solid: oklch(0.975 0.008 95);
+  --surface-raised: oklch(0.995 0.004 95);
+  --surface-muted: oklch(0.94 0.009 95);
+  --ink: oklch(0.22 0.015 95);
+  --ink-secondary: oklch(0.45 0.012 95);
+  --ink-tertiary: oklch(0.5 0.01 95);
+  --border: oklch(0.35 0.012 95 / 0.16);
+  --border-strong: oklch(0.35 0.012 95 / 0.26);
+  --accent: oklch(0.62 0.15 35);
+  --accent-soft: oklch(0.62 0.15 35 / 0.11);
+  --shadow: 0 1px 2px oklch(0.2 0.01 95 / 0.06), 0 10px 32px oklch(0.2 0.01 95 / 0.1);
+}
+
+:root[data-theme="dark"] {
+  --surface: oklch(0.21 0.012 95 / 0.96);
+  --surface-solid: oklch(0.18 0.012 95);
+  --surface-raised: oklch(0.24 0.012 95);
+  --surface-muted: oklch(0.28 0.012 95);
+  --ink: oklch(0.93 0.008 95);
+  --ink-secondary: oklch(0.74 0.01 95);
+  --ink-tertiary: oklch(0.61 0.01 95);
+  --border: oklch(0.9 0.008 95 / 0.13);
+  --border-strong: oklch(0.9 0.008 95 / 0.23);
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 200;
+  top: 8px;
+  left: 50%;
+  padding: 10px 14px;
+  border-radius: 10px;
+  color: var(--surface-solid);
+  background: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  transform: translate(-50%, -160%);
+  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.skip-link:focus {
+  transform: translate(-50%, 0);
+}
+
+.glass-panel {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.brand-bar {
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  height: 60px;
+  border-radius: 16px;
+}
+
+.search-panel,
+.evidence-panel {
+  top: 84px;
+  bottom: 12px;
+  border-radius: 18px;
+}
+
+.search-panel {
+  left: 12px;
+  width: 368px;
+  padding: 20px;
+}
+
+.evidence-panel {
+  right: 12px;
+  width: 432px;
+  padding: 20px;
+}
+
+.maplibregl-ctrl-top-right {
+  top: 84px;
+  right: 456px;
+}
+
+.search-panel h1 {
+  max-width: 275px;
+  font-size: 25px;
+}
+
+.search-panel__heading p,
+.evidence-header p {
+  font-size: 13px;
+}
+
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.place-search {
+  height: 50px;
+  margin-top: 18px;
+}
+
+.place-search input,
+.place-search button {
+  font-size: 13px;
+}
+
+.featured-places button,
+.segmented-control button,
+.filter-chips button {
+  min-height: 38px;
+  font-size: 12px;
+}
+
+.provider-strip {
+  padding: 13px;
+}
+
+.provider-strip strong,
+.analysis-controls legend {
+  font-size: 12px;
+}
+
+.provider-strip small {
+  font-size: 11px;
+}
+
+.method-button {
+  min-height: 42px;
+  font-size: 12px;
+}
+
+.evidence-header h2 {
+  max-width: 310px;
+  font-size: 23px;
+}
+
+.evidence-content {
+  gap: 16px;
+  padding-top: 16px;
+}
+
+.activity-band,
+.evidence-section,
+.source-card {
+  border-radius: 14px;
+}
+
+.activity-band {
+  padding: 18px;
+}
+
+.activity-band > strong {
+  font-size: 25px;
+}
+
+.activity-band__status,
+.activity-band > p {
+  font-size: 12px;
+}
+
+.confidence-row {
+  font-size: 10px;
+}
+
+.metric-grid {
+  gap: 10px;
+}
+
+.metric-grid article {
+  min-height: 110px;
+  padding: 14px;
+  border-radius: 12px;
+}
+
+.metric-grid article > span,
+.metric-grid article > small {
+  font-size: 11px;
+}
+
+.metric-grid article > strong {
+  font-size: 25px;
+}
+
+.evidence-section {
+  padding: 16px;
+}
+
+.section-heading h3,
+.source-card h3,
+.selected-incident h3 {
+  font-size: 14px;
+}
+
+.section-heading > span,
+.category-list,
+.category-list > div > strong,
+.incident-list strong,
+.incident-list small,
+.incident-list time,
+.source-card dt,
+.source-card dd,
+.source-card__method,
+.empty-copy {
+  font-size: 11px;
+}
+
+.incident-list button {
+  min-height: 56px;
+}
+
+.source-card__method {
+  min-height: 42px;
+}
+
+@media (max-width: 1180px) and (min-width: 821px) {
+  .search-panel {
+    width: 330px;
+  }
+
+  .evidence-panel {
+    width: 380px;
+  }
+
+  .maplibregl-ctrl-top-right {
+    right: 404px;
+  }
+}
+
+@media (max-width: 820px) {
+  html,
+  body,
+  #root {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+  }
+
+  body {
+    overflow-x: hidden;
+  }
+
+  .atlas-app {
+    display: flex;
+    min-height: 100dvh;
+    height: auto;
+    padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom));
+    gap: 8px;
+    overflow: visible;
+    flex-direction: column;
+  }
+
+  .brand-bar,
+  .search-panel,
+  .map-stage,
+  .evidence-panel {
+    position: relative;
+    inset: auto;
+    width: 100%;
+  }
+
+  .brand-bar {
+    z-index: 30;
+    order: 1;
+    height: 52px;
+    padding: 6px 8px;
+    flex: 0 0 auto;
+  }
+
+  .brand-mark {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .brand-lockup strong {
+    font-size: 15px;
+  }
+
+  .brand-actions .icon-button:first-child {
+    display: inline-grid;
+  }
+
+  .search-panel {
+    z-index: 20;
+    order: 2;
+    max-height: none;
+    padding: 14px;
+    overflow: visible;
+    border-radius: 16px;
+  }
+
+  .search-panel h1 {
+    max-width: calc(100vw - 105px);
+    font-size: 20px;
+  }
+
+  .search-panel__heading p {
+    font-size: 12px;
+  }
+
+  .place-search {
+    height: 46px;
+    margin-top: 12px;
+  }
+
+  .featured-places {
+    margin-top: 9px;
+    padding-bottom: 2px;
+  }
+
+  .featured-places button {
+    min-height: 36px;
+  }
+
+  .provider-strip {
+    margin-top: 10px;
+    padding: 10px 11px;
+  }
+
+  .provider-strip small {
+    display: block;
+  }
+
+  .mobile-filter-toggle {
+    min-height: 44px;
+    margin-top: 10px;
+    font-size: 13px;
+  }
+
+  .analysis-controls.is-open {
+    padding-top: 2px;
+  }
+
+  .method-button {
+    display: flex;
+    margin-top: 12px;
+  }
+
+  .map-stage {
+    z-index: 0;
+    order: 3;
+    height: 42dvh;
+    min-height: 300px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+  }
+
+  .map-canvas,
+  .map-veil {
+    position: absolute;
+    inset: 0;
+  }
+
+  .maplibregl-ctrl-top-right {
+    top: 10px;
+    right: 10px;
+    bottom: auto;
+  }
+
+  .maplibregl-ctrl-attrib {
+    display: block;
+    max-width: calc(100% - 8px);
+    font-size: 9px;
+  }
+
+  .evidence-panel {
+    z-index: 10;
+    order: 4;
+    max-height: none;
+    padding: 16px;
+    overflow: visible;
+    border-radius: 16px;
+  }
+
+  .evidence-header {
+    position: static;
+    padding: 0 0 14px;
+    background: none;
+  }
+
+  .evidence-header h2 {
+    max-width: calc(100vw - 100px);
+    font-size: 20px;
+  }
+
+  .activity-band > strong {
+    font-size: 23px;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: max(12px, env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 420px) {
+  .brand-lockup small {
+    display: none;
+  }
+
+  .search-panel h1 {
+    max-width: calc(100vw - 90px);
+  }
+
+  .confidence-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .metric-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}

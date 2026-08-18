@@ -82,15 +82,17 @@ test('loads an ArcGIS-backed official city feed', async ({ page }) => {
   await expectNoHorizontalOverflow(page);
 });
 
-test('mobile bottom sheet can expand without layout overflow', async ({ page }, testInfo) => {
+test('mobile layout keeps the map and evidence in a readable document flow', async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.startsWith('mobile'), 'Mobile-only interaction');
   await mockOfficialSources(page);
   await page.goto('/?e2e=1');
   await expect(page.getByTestId('reported-count')).toHaveText('5');
 
-  const handle = page.getByRole('button', { name: 'Resize evidence panel' });
-  await handle.click();
-  await expect(handle).toHaveAttribute('aria-expanded', 'true');
+  const mapBox = await page.locator('.map-stage').boundingBox();
+  const evidenceBox = await page.getByTestId('evidence-panel').boundingBox();
+  expect(mapBox).not.toBeNull();
+  expect(evidenceBox).not.toBeNull();
+  expect(evidenceBox!.y).toBeGreaterThanOrEqual(mapBox!.y + mapBox!.height);
   await expectNoHorizontalOverflow(page);
 
   await page.screenshot({

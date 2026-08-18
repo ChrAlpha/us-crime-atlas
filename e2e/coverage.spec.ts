@@ -29,10 +29,7 @@ test('keeps six-city navigation and source disclosure usable', async ({ page }, 
   await expectNoHorizontalOverflow(page);
 
   if (testInfo.project.name.startsWith('mobile')) {
-    const handle = page.getByRole('button', { name: 'Resize evidence panel' });
-    await handle.click();
-    await expect(handle).toHaveAttribute('aria-expanded', 'true');
-    const sourceButton = page.getByRole('button', { name: 'Read source caveats and methodology' });
+    const sourceButton = page.getByRole('button', { name: 'Sources & methodology' });
     await sourceButton.scrollIntoViewIfNeeded();
     await sourceButton.click();
   } else {
