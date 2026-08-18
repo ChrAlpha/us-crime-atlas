@@ -32,7 +32,6 @@
   }
 
   .search-panel {
-    z-index: 45;
     top: calc(max(9px, env(safe-area-inset-top)) + 66px);
     right: 9px;
     bottom: auto;
@@ -42,6 +41,10 @@
     padding: 13px;
     border-radius: 19px;
     overflow-y: auto;
+  }
+
+  .search-panel:has(.analysis-controls.is-open) {
+    z-index: 45;
   }
 
   .search-panel__heading {
