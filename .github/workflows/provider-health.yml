@@ -1,0 +1,29 @@
+name: Official provider health
+
+on:
+  schedule:
+    - cron: '17 13 * * 1,4'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: provider-health
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    name: Validate nine official city feeds
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Check provider schemas, sample geometry, CORS, and map style
+        run: npm run test:data
