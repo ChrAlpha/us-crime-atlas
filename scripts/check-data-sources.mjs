@@ -46,9 +46,9 @@ const socrataSources = [
       id: ['uniquenibrno'],
       date: ['date_occ'],
       category: ['nibr_description', 'nibr_code'],
-      latitude: ['latitude', 'lat'],
-      longitude: ['longitude', 'lon'],
-      point: ['location_1', 'geocoded_column'],
+      latitude: ['hndrdth_lat'],
+      longitude: ['hndrdth_lon'],
+      point: [],
     },
   },
   {

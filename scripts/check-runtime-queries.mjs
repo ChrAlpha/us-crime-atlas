@@ -23,9 +23,9 @@ const socrataSources = [
     bounds: { west: -118.68, south: 33.7, east: -118.15, north: 34.34 },
     aliases: {
       date: ['date_occ'],
-      latitude: ['lat', 'latitude'],
-      longitude: ['lon', 'longitude'],
-      point: ['location_1', 'geocoded_column'],
+      latitude: ['hndrdth_lat'],
+      longitude: ['hndrdth_lon'],
+      point: [],
     },
   },
   {

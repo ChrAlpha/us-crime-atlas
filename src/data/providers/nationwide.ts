@@ -142,11 +142,10 @@ const losAngelesAliases = aliases({
   time: ['time_occ'],
   category: ['nibr_description', 'nibr_code'],
   description: ['premis_desc', 'weapon_desc', 'crime_against'],
-  location: ['hundred_block_location', 'hundred_block', 'location'],
+  location: ['hndrdth_loc_chk'],
   area: ['area_name'],
-  latitude: ['latitude', 'lat'],
-  longitude: ['longitude', 'lon'],
-  point: ['location_1', 'geocoded_column'],
+  latitude: ['hndrdth_lat'],
+  longitude: ['hndrdth_lon'],
 });
 
 const losAngelesFields: Fields = {
@@ -156,10 +155,10 @@ const losAngelesFields: Fields = {
   time: 'time_occ',
   category: 'nibr_description',
   description: 'premis_desc',
-  location: 'hundred_block_location',
+  location: 'hndrdth_loc_chk',
   area: 'area_name',
-  latitude: 'latitude',
-  longitude: 'longitude',
+  latitude: 'hndrdth_lat',
+  longitude: 'hndrdth_lon',
   point: null,
 };
 

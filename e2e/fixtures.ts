@@ -163,9 +163,9 @@ export async function mockOfficialSources(page: Page, mode: 'success' | 'error' 
     'nibr_description',
     'crime_against',
     'premis_desc',
-    'hundred_block_location',
-    'latitude',
-    'longitude',
+    'hndrdth_loc_chk',
+    'hndrdth_lat',
+    'hndrdth_lon',
   ]);
   await emptyAdaptiveSource(page, 'tazs-3rd5', [
     'report_number',
