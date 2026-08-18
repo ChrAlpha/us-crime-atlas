@@ -42,6 +42,12 @@ test('updates provider, filters, radius, URL state, and methodology dialog', asy
   await expect(page.getByText('Chicago Police Department').first()).toBeVisible();
   await expect(page.getByTestId('reported-count')).toHaveText('4');
 
+  if (testInfo.project.name.startsWith('mobile')) {
+    const settingsToggle = page.getByRole('button', { name: 'Analysis settings' });
+    await settingsToggle.click();
+    await expect(settingsToggle).toHaveAttribute('aria-expanded', 'true');
+  }
+
   await page.getByRole('button', { name: 'Property' }).click();
   await expect(page).toHaveURL(/groups=violent%2Cvehicle%2Cweapons%2Cother/);
   await expect(page.getByTestId('reported-count')).toHaveText('3');
