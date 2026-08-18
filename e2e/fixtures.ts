@@ -154,16 +154,18 @@ export async function mockOfficialSources(page: Page, mode: 'success' | 'error' 
     route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
   );
 
-  await emptyAdaptiveSource(page, '2nrs-mtv8', [
-    'dr_no',
+  await emptyAdaptiveSource(page, 'k7nn-b2ep', [
+    'caseno',
+    'uniquenibrno',
     'date_occ',
     'time_occ',
-    'crm_cd_desc',
-    'premis_desc',
-    'location',
     'area_name',
-    'lat',
-    'lon',
+    'nibr_description',
+    'crime_against',
+    'premis_desc',
+    'hundred_block_location',
+    'latitude',
+    'longitude',
   ]);
   await emptyAdaptiveSource(page, 'tazs-3rd5', [
     'report_number',

@@ -122,8 +122,8 @@ describe('adaptive Socrata provider boundary', () => {
     expect(url.searchParams.get('$select')).toBe('incident_id,occurred_at,offense,lat,lon');
     expect(url.searchParams.get('$order')).toBe('occurred_at DESC');
     expect(url.searchParams.get('$where')).toContain("occurred_at >= '2026-06-18T12:00:00.000'");
-    expect(url.searchParams.get('$where')).toContain("lat NOT IN ('REDACTED', '-', '')");
-    expect(url.searchParams.get('$where')).toContain('to_number(lat) >=');
+    expect(url.searchParams.get('$where')).toContain("lat >= '39.973");
+    expect(url.searchParams.get('$where')).toContain("lon <= '-75.035");
 
     const pointFields = { ...resolved, latitude: null, longitude: null, point: 'location' };
     const pointUrl = new URL(buildAdaptiveSocrataUrl(config, pointFields, query));

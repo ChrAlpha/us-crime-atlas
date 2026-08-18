@@ -60,8 +60,18 @@ function sourceStamp(date: Date) {
   return date.toISOString().replace(/Z$/, '');
 }
 
-function numericField(field: string) {
-  return `to_number(${field})`;
+function textRange(field: string, lower: number, upper: number) {
+  const lowerWhole = Math.trunc(lower);
+  const upperWhole = Math.trunc(upper);
+  if (lowerWhole !== upperWhole || (lower < 0) !== (upper < 0)) {
+    throw new Error(`Text coordinate bounds for ${field} cross a degree boundary`);
+  }
+  const lowerText = lower.toFixed(7);
+  const upperText = upper.toFixed(7);
+  if (lower < 0) {
+    return [`${field} <= '${lowerText}'`, `${field} >= '${upperText}'`];
+  }
+  return [`${field} >= '${lowerText}'`, `${field} <= '${upperText}'`];
 }
 
 function resolvedQueryGeometry<Key extends string>(
@@ -73,20 +83,19 @@ function resolvedQueryGeometry<Key extends string>(
   const latitudeField = config.latitudeKey ? fields[config.latitudeKey] : null;
   const longitudeField = config.longitudeKey ? fields[config.longitudeKey] : null;
   if (latitudeField && longitudeField) {
-    const latitude = config.coordinateFieldsAreText ? numericField(latitudeField) : latitudeField;
-    const longitude = config.coordinateFieldsAreText ? numericField(longitudeField) : longitudeField;
-    const validityFilters = config.coordinateFieldsAreText
-      ? [
-          `${latitudeField} NOT IN ('REDACTED', '-', '')`,
-          `${longitudeField} NOT IN ('REDACTED', '-', '')`,
-        ]
-      : [];
+    if (config.coordinateFieldsAreText) {
+      return [
+        `${latitudeField} NOT IN ('REDACTED', '-', '')`,
+        `${longitudeField} NOT IN ('REDACTED', '-', '')`,
+        ...textRange(latitudeField, box.south, box.north),
+        ...textRange(longitudeField, box.west, box.east),
+      ];
+    }
     return [
-      ...validityFilters,
-      `${latitude} >= ${box.south.toFixed(7)}`,
-      `${latitude} <= ${box.north.toFixed(7)}`,
-      `${longitude} >= ${box.west.toFixed(7)}`,
-      `${longitude} <= ${box.east.toFixed(7)}`,
+      `${latitudeField} >= ${box.south.toFixed(7)}`,
+      `${latitudeField} <= ${box.north.toFixed(7)}`,
+      `${longitudeField} >= ${box.west.toFixed(7)}`,
+      `${longitudeField} <= ${box.east.toFixed(7)}`,
     ];
   }
   const pointField = config.pointKey ? fields[config.pointKey] : null;

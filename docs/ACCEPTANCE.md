@@ -23,7 +23,7 @@ A change is release-ready only when the relevant automated gates pass and the vi
 - [ ] Adaptive Socrata providers resolve only explicitly reviewed aliases from official dataset metadata.
 - [ ] A missing required Socrata semantic fails closed rather than guessing another column.
 - [ ] Socrata providers support either a reviewed latitude/longitude pair or a reviewed Point field.
-- [ ] Text-valued coordinates exclude documented privacy placeholders before numeric spatial filtering.
+- [ ] Text-valued coordinates exclude documented privacy placeholders, use fixed-degree textual bounds, and are parsed numerically before exact Haversine filtering.
 - [ ] Washington DC uses the reviewed official MPD 2026 Feature Layer and verifies its layer name and required fields.
 - [ ] ArcGIS transfer-limit responses are surfaced as potentially truncated evidence.
 - [ ] Adapter tests cover representative violent, property, vehicle, and weapons classifications across both backend families.

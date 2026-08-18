@@ -15,7 +15,7 @@ The application uses incident-level publications from local law-enforcement agen
 - New York City Police Department Complaint Data Current (YTD), Socrata dataset `5uac-w243`.
 - Metropolitan Police Department of the District of Columbia Crime Incidents - 2026, official ArcGIS Feature Layer `FEEDS/MPD/FeatureServer/41`.
 - Chicago Police Department Crimes — 2001 to Present, Socrata dataset `ijzp-q8t2`.
-- Los Angeles Police Department Crime Data from 2020 to Present, Socrata dataset `2nrs-mtv8`.
+- Los Angeles Police Department NIBRS Offenses Dataset 2026 to Present, Socrata dataset `k7nn-b2ep`.
 - San Francisco Police Department Incident Reports — 2018 to Present, Socrata dataset `wg3w-h783`.
 - Seattle Police Department Crime Data: 2008–Present, Socrata dataset `tazs-3rd5`.
 
@@ -53,7 +53,7 @@ Los Angeles and Seattle use the adaptive Socrata boundary:
 
 The alias mechanism handles publisher field renames that retain an explicitly reviewed synonym. It does not guess arbitrary columns or silently accept a semantically different replacement.
 
-Seattle publishes latitude and longitude as text and uses privacy placeholders such as `REDACTED` and `-`. Its query excludes those placeholders before applying `to_number(...)` for bounded spatial filtering. Rows with nonnumeric, sentinel, zero, or out-of-range coordinates are also rejected after retrieval.
+Seattle publishes latitude and longitude as text and uses privacy placeholders such as `REDACTED` and `-`. Because the registered Seattle bounds remain inside fixed latitude and longitude degree bands, its query excludes those placeholders and applies sign-aware textual bounds. Coordinates are then parsed numerically and exact Haversine filtering remains authoritative. Rows with nonnumeric, sentinel, zero, or out-of-range coordinates are rejected after retrieval.
 
 ### ArcGIS Feature Service
 

@@ -39,21 +39,21 @@ const socrataSources = [
     },
   },
   {
-    name: 'LAPD Crime Data from 2020 to Present',
-    endpoint: 'https://data.lacity.org/resource/2nrs-mtv8.json',
+    name: 'LAPD NIBRS Offenses Dataset 2026 to Present',
+    endpoint: 'https://data.lacity.org/resource/k7nn-b2ep.json',
     requireIdentity: true,
     aliases: {
-      id: ['dr_no'],
+      id: ['uniquenibrno'],
       date: ['date_occ'],
-      category: ['crm_cd_desc'],
-      latitude: ['lat', 'latitude'],
-      longitude: ['lon', 'longitude'],
+      category: ['nibr_description', 'nibr_code'],
+      latitude: ['latitude', 'lat'],
+      longitude: ['longitude', 'lon'],
       point: ['location_1', 'geocoded_column'],
     },
   },
   {
     name: 'Seattle SPD Crime Data: 2008–Present',
-    endpoint: 'https://data.seattle.gov/resource/tazs-3rd5.json',
+    endpoint: 'https://cos-data.seattle.gov/resource/tazs-3rd5.json',
     requireIdentity: true,
     aliases: {
       id: ['offense_id', 'report_number'],

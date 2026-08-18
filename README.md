@@ -83,7 +83,7 @@ Official Socrata metadata + rows       Official ArcGIS feature layer
                 └── responsive evidence inspector
 ```
 
-Stable Socrata providers use explicit schemas. Expansion providers resolve only reviewed aliases from live dataset metadata. Seattle’s published coordinates are text fields, so its bounded query explicitly excludes privacy placeholders before converting coordinates to numbers. Washington, DC uses the official 2026 MPD Feature Layer directly rather than selecting a similarly titled ArcGIS item heuristically.
+Stable Socrata providers use explicit schemas. Expansion providers resolve only reviewed aliases from live dataset metadata. Seattle’s published coordinates are text fields, so its bounded query excludes privacy placeholders and applies fixed-degree textual bounds before numeric parsing and exact Haversine filtering. Washington, DC uses the official 2026 MPD Feature Layer directly rather than selecting a similarly titled ArcGIS item heuristically.
 
 A new provider must declare its publisher, machine-readable endpoint, row identity, occurrence-time semantics, geographic bounds, update cadence, known lag, and public spatial transformation. It joins the registry only after mapper tests, live metadata checks, a runtime-shaped spatial query, and responsive browser acceptance pass.
 

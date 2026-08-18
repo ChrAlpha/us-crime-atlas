@@ -76,18 +76,19 @@ describe('official provider row adapters', () => {
 
   it('normalizes Los Angeles occurrence time and approximate coordinates', () => {
     const incident = mapLosAngelesRow({
-      dr_no: 1001,
+      uniquenibrno: 'LA-1001-120',
+      caseno: 'LA-1001',
       date_occ: '2026-08-10T00:00:00.000',
       time_occ: '2315',
-      crm_cd_desc: 'ROBBERY',
+      nibr_description: 'ROBBERY',
       premis_desc: 'STREET',
-      location: '6800 HOLLYWOOD BL',
+      hundred_block_location: '6800 HOLLYWOOD BL',
       area_name: 'Hollywood',
-      lat: '34.1016',
-      lon: '-118.3406',
+      latitude: '34.1016',
+      longitude: '-118.3406',
     });
     expect(incident).toMatchObject({
-      id: 'los-angeles:1001',
+      id: 'los-angeles:LA-1001-120:LA-1001',
       category: 'robbery',
       group: 'violent',
       localHour: 23,
@@ -147,7 +148,7 @@ describe('official provider row adapters', () => {
     expect(mapChicagoRow({ date: '2026-08-10T00:00:00', latitude: '41', longitude: '-87' })).toBeNull();
     expect(mapNewYorkRow({ cmplnt_num: 'x', cmplnt_fr_dt: '', latitude: '40', longitude: '-73' })).toBeNull();
     expect(mapSanFranciscoRow({ row_id: 'x', incident_datetime: '2026-08-10T00:00:00', latitude: '37' })).toBeNull();
-    expect(mapLosAngelesRow({ dr_no: 'x', date_occ: '2026-08-10T00:00:00', lat: '0', lon: '0' })).toBeNull();
+    expect(mapLosAngelesRow({ uniquenibrno: 'x', date_occ: '2026-08-10T00:00:00', latitude: '0', longitude: '0' })).toBeNull();
     expect(mapSeattleRow({ offense_id: 'x', offense_date: '2026-08-10T00:00:00', latitude: 'REDACTED', longitude: 'REDACTED' })).toBeNull();
     expect(mapWashingtonDcFeature({
       attributes: { OBJECTID: 1, START_DATE: 'bad' },
