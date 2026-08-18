@@ -2,17 +2,25 @@
 
 An evidence-first, responsive MapLibre application for examining recently published crime incidents around a US travel destination.
 
-The atlas deliberately avoids an opaque “safety score.” It shows the observed incident count, violent and nighttime shares, change from the previous equal time window, and a transparent density comparison between the selected radius and its surrounding area.
+The atlas deliberately avoids an opaque “safety score.” It shows observed incident counts, violent and nighttime shares, change from the previous equal time window, and a transparent density comparison between the selected radius and its surrounding area.
 
-## Current coverage
+## Current official incident coverage
 
-| City | Publisher | Dataset | Public location precision |
+| City | Publisher | Backend | Public location precision |
 | --- | --- | --- | --- |
-| New York City | NYPD | Complaint Data Current (YTD) | Block midpoint |
-| Chicago | Chicago Police Department | Crimes — 2001 to Present | Shifted block location |
-| San Francisco | San Francisco Police Department | Incident Reports — 2018 to Present | Nearby intersection |
+| New York City | NYPD | Socrata | Block midpoint |
+| Washington, DC | Metropolitan Police Department | ArcGIS Feature Service | Generalized block |
+| Baltimore | Baltimore Police Department | Socrata | Approximate incident location |
+| Chicago | Chicago Police Department | Socrata | Shifted block location |
+| Nashville | Metropolitan Nashville Police Department | Socrata | Approximate incident location |
+| Austin | Austin Police Department | Socrata | Approximate report location |
+| Los Angeles | Los Angeles Police Department | Socrata | Approximate block |
+| San Francisco | San Francisco Police Department | Socrata | Nearby intersection |
+| Seattle | Seattle Police Department | Socrata | Approximate 100-block |
 
-The map and place search work throughout the United States. Incident analysis is enabled only where a verified provider adapter exists, so unsupported areas never silently receive fabricated or city-level proxy data.
+The map and place search work throughout the United States. Incident analysis is enabled only where a verified provider adapter exists, so unsupported areas never silently receive fabricated events, a citywide average, or a national proxy.
+
+This first nationwide expansion wave deliberately prioritizes maintainable official feeds over a large but unverifiable city list. Socrata providers resolve documented field aliases from live dataset metadata, while the Washington, DC provider resolves the current-year incident Feature Service through the official DCGIS ArcGIS catalog. A scheduled workflow checks every provider twice weekly for schema drift, sample geometry, and endpoint availability.
 
 ## Product behavior
 
@@ -28,7 +36,7 @@ The map and place search work throughout the United States. Incident analysis is
 
 ## Why the atlas uses a nearby-area comparison
 
-A resident-population “crime rate” can be misleading for airports, downtowns, campuses, transit hubs, and tourist districts because the exposed population is much larger than the resident population. US Crime Atlas instead compares weighted published-incident density in the selected circle with the surrounding annulus during the same dates:
+A resident-population “crime rate” can be misleading for airports, downtowns, campuses, transit hubs, and tourist districts because the exposed population can be much larger than the resident population. US Crime Atlas instead compares weighted published-incident density in the selected circle with the surrounding annulus during the same dates:
 
 ```text
 relative activity = selected weighted incidents / km²
@@ -36,7 +44,7 @@ relative activity = selected weighted incidents / km²
                     nearby weighted incidents / km²
 ```
 
-This is a local activity signal, not a prediction of personal harm. Raw counts are always shown beside it. See [Data methodology](docs/DATA-METHODOLOGY.md) for category weights, thresholds, and limitations.
+This is a local activity signal, not a prediction of personal harm. Raw counts are always shown beside it. See [Data methodology](docs/DATA-METHODOLOGY.md) for category weights, thresholds, source boundaries, and limitations.
 
 ## Development
 
@@ -58,39 +66,46 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-`test:data` performs live schema checks against all three official city endpoints and validates the OpenFreeMap MapLibre style. Playwright mocks incident responses so browser acceptance remains deterministic while the separate contract job detects upstream schema drift.
+`test:data` performs live metadata and sample-record checks against all nine official city feeds and validates the OpenFreeMap MapLibre style. Playwright mocks source responses so browser acceptance remains deterministic while the separate live contract job detects upstream schema drift.
 
 ## Architecture
 
 ```text
-Official Socrata feeds
-        │
-        ▼
-Provider adapters ── normalize category, time, coordinates, precision
-        │
-        ▼
-Analysis engine ── radius filter, equal-window trend, nearby annulus density
-        │
-        ├── MapLibre clustered GeoJSON layers
-        └── responsive evidence inspector
+Official Socrata metadata + rows       Official ArcGIS catalog + features
+                 │                                      │
+                 └──────── Provider boundaries ─────────┘
+                                      │
+                                      ▼
+             Normalize category, time, geometry, identity, precision
+                                      │
+                                      ▼
+       Analysis engine ── radius filter, equal-window trend, nearby annulus density
+                                      │
+                    ├── MapLibre clustered GeoJSON layers
+                    └── responsive evidence inspector
 ```
 
-The provider boundary is intentionally small. A new city implements `IncidentProvider`, declares its publication caveats, normalizes rows to `Incident`, and joins the registry in `src/data/providers/index.ts`.
+A new provider must declare its publisher, machine-readable endpoint, field aliases or feature schema, row identity, occurrence-time semantics, geographic bounds, update cadence, known lag, and public spatial transformation. It then joins the registry in `src/data/providers/index.ts` only after mapper tests and a live source contract pass.
 
 ## Acceptance evidence
 
 The CI workflow requires:
 
 1. strict TypeScript checking;
-2. unit coverage thresholds for geospatial, normalization, URL-state, analysis, and provider contracts;
+2. unit coverage thresholds for geospatial, normalization, URL-state, analysis, Socrata, ArcGIS, and city mapper contracts;
 3. a production Vite build;
 4. live official-source and MapLibre-style contract tests;
 5. Chromium acceptance at desktop and iPhone-class viewports;
 6. interaction checks for provider switching, filters, radius and URL state;
-7. horizontal-overflow checks and a serious/critical axe accessibility audit;
-8. retained desktop/mobile screenshots and Playwright traces as workflow artifacts.
+7. an explicit browser path through an ArcGIS-backed provider;
+8. horizontal-overflow checks and a serious/critical axe accessibility audit;
+9. retained desktop/mobile screenshots and Playwright traces as workflow artifacts.
 
 The detailed release criteria are in [Acceptance criteria](docs/ACCEPTANCE.md).
+
+## Provider health
+
+`.github/workflows/provider-health.yml` runs every Monday and Thursday and can also be dispatched manually. It fails when a required source field disappears, a sample record no longer exposes usable geometry, an ArcGIS catalog item cannot be resolved, or the base-map style contract changes. A failing health run is a signal to investigate the publisher before changing or suppressing a contract.
 
 ## Responsible-use notice
 
