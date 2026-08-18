@@ -1,45 +1,48 @@
 const socrataSources = [
   {
-    name: 'Chicago', endpoint: 'https://data.cityofchicago.org/resource/ijzp-q8t2.json',
+    name: 'Chicago',
+    endpoint: 'https://data.cityofchicago.org/resource/ijzp-q8t2.json',
     bounds: { west: -87.95, south: 41.63, east: -87.5, north: 42.03 },
     aliases: { date: ['date'], latitude: ['latitude'], longitude: ['longitude'], point: ['location'] },
   },
   {
-    name: 'New York City', endpoint: 'https://data.cityofnewyork.us/resource/5uac-w243.json',
+    name: 'New York City',
+    endpoint: 'https://data.cityofnewyork.us/resource/5uac-w243.json',
     bounds: { west: -74.27, south: 40.48, east: -73.68, north: 40.93 },
     aliases: { date: ['cmplnt_fr_dt'], latitude: ['latitude'], longitude: ['longitude'], point: ['lat_lon'] },
   },
   {
-    name: 'San Francisco', endpoint: 'https://data.sfgov.org/resource/wg3w-h783.json',
+    name: 'San Francisco',
+    endpoint: 'https://data.sfgov.org/resource/wg3w-h783.json',
     bounds: { west: -122.54, south: 37.69, east: -122.33, north: 37.84 },
     aliases: { date: ['incident_datetime'], latitude: ['latitude'], longitude: ['longitude'], point: ['point'] },
   },
   {
-    name: 'Los Angeles', endpoint: 'https://data.lacity.org/resource/2nrs-mtv8.json',
+    name: 'Los Angeles',
+    endpoint: 'https://data.lacity.org/resource/2nrs-mtv8.json',
     bounds: { west: -118.68, south: 33.7, east: -118.15, north: 34.34 },
-    aliases: { date: ['date_occ'], latitude: ['lat', 'latitude'], longitude: ['lon', 'longitude'], point: ['location_1', 'geocoded_column'] },
+    aliases: {
+      date: ['date_occ'],
+      latitude: ['lat', 'latitude'],
+      longitude: ['lon', 'longitude'],
+      point: ['location_1', 'geocoded_column'],
+    },
   },
   {
-    name: 'Seattle', endpoint: 'https://data.seattle.gov/resource/tazs-3rd5.json',
+    name: 'Seattle',
+    endpoint: 'https://data.seattle.gov/resource/tazs-3rd5.json',
     bounds: { west: -122.46, south: 47.47, east: -122.22, north: 47.75 },
-    aliases: { date: ['offense_start_datetime', 'report_datetime'], latitude: ['latitude'], longitude: ['longitude'], point: ['report_location', 'geocoded_column'] },
-  },
-  {
-    name: 'Austin', endpoint: 'https://data.austintexas.gov/resource/fdj4-gpfu.json',
-    bounds: { west: -98.0, south: 30.05, east: -97.52, north: 30.55 },
-    aliases: { date: ['occ_date_time', 'occurrence_date_time', 'occurred_date_time'], latitude: ['latitude'], longitude: ['longitude'], point: ['location', 'geocoded_column'] },
-  },
-  {
-    name: 'Baltimore', endpoint: 'https://data.baltimorecity.gov/resource/wsfq-mvij.json',
-    bounds: { west: -76.72, south: 39.19, east: -76.52, north: 39.38 },
-    aliases: { date: ['crimedatetime', 'crime_date_time'], latitude: ['latitude'], longitude: ['longitude'], point: ['geolocation', 'location_1', 'geocoded_column'] },
-  },
-  {
-    name: 'Nashville', endpoint: 'https://data.nashville.gov/resource/2u6v-ujjs.json',
-    bounds: { west: -87.05, south: 35.95, east: -86.5, north: 36.42 },
-    aliases: { date: ['incident_occurred', 'occurred', 'incident_reported'], latitude: ['latitude'], longitude: ['longitude'], point: ['mapped_location', 'location', 'geocoded_column'] },
+    aliases: {
+      date: ['offense_date', 'report_date_time'],
+      latitude: ['latitude'],
+      longitude: ['longitude'],
+      point: [],
+    },
+    coordinateFieldsAreText: true,
   },
 ];
+
+const dcLayerUrl = 'https://maps2.dcgis.dc.gov/dcgis/rest/services/FEEDS/MPD/FeatureServer/41';
 
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -82,6 +85,10 @@ function sourceStamp(date) {
   return date.toISOString().replace(/Z$/, '');
 }
 
+function coordinateExpression(field, textField) {
+  return textField ? `to_number(${field})` : field;
+}
+
 async function checkSocrataRuntimeQuery(source) {
   const metadataResponse = await fetchWithRetry(metadataUrl(source.endpoint));
   const metadata = await metadataResponse.json();
@@ -96,14 +103,27 @@ async function checkSocrataRuntimeQuery(source) {
 
   const now = new Date();
   const start = new Date(now.getTime() - 180 * 86_400_000);
-  const geometryWhere = hasPair
-    ? [
-        `${fields.latitude} >= ${source.bounds.south}`,
-        `${fields.latitude} <= ${source.bounds.north}`,
-        `${fields.longitude} >= ${source.bounds.west}`,
-        `${fields.longitude} <= ${source.bounds.east}`,
-      ].join(' AND ')
-    : `within_box(${fields.point}, ${source.bounds.north}, ${source.bounds.west}, ${source.bounds.south}, ${source.bounds.east})`;
+  let geometryWhere;
+  if (hasPair) {
+    const latitude = coordinateExpression(fields.latitude, source.coordinateFieldsAreText);
+    const longitude = coordinateExpression(fields.longitude, source.coordinateFieldsAreText);
+    const validityFilters = source.coordinateFieldsAreText
+      ? [
+          `${fields.latitude} NOT IN ('REDACTED', '-', '')`,
+          `${fields.longitude} NOT IN ('REDACTED', '-', '')`,
+        ]
+      : [];
+    geometryWhere = [
+      ...validityFilters,
+      `${latitude} >= ${source.bounds.south}`,
+      `${latitude} <= ${source.bounds.north}`,
+      `${longitude} >= ${source.bounds.west}`,
+      `${longitude} <= ${source.bounds.east}`,
+    ].join(' AND ');
+  } else {
+    geometryWhere = `within_box(${fields.point}, ${source.bounds.north}, ${source.bounds.west}, ${source.bounds.south}, ${source.bounds.east})`;
+  }
+
   const selected = [...new Set(Object.values(fields).filter(Boolean))];
   const params = new URLSearchParams({
     $select: selected.join(','),
@@ -127,22 +147,6 @@ function sqlTimestamp(date) {
 }
 
 async function checkDcRuntimeQuery() {
-  const year = new Date().getUTCFullYear();
-  const search = new URL('https://www.arcgis.com/sharing/rest/search');
-  search.search = new URLSearchParams({
-    f: 'json',
-    num: '100',
-    q: `owner:DCGIS type:"Feature Service" "Crime Incidents in ${year}"`,
-  }).toString();
-  const catalogResponse = await fetchWithRetry(search);
-  const catalog = await catalogResponse.json();
-  const item = (catalog.results ?? []).find(
-    (candidate) => candidate.title?.toLowerCase().includes(`crime incidents in ${year}`) && candidate.url,
-  );
-  if (!item?.url) throw new Error(`Washington DC: current-year Feature Service was not found`);
-  const normalized = item.url.replace(/\/$/, '');
-  const layer = /\/FeatureServer\/\d+$/i.test(normalized) ? normalized : `${normalized}/0`;
-
   const now = new Date();
   const start = new Date(now.getTime() - 180 * 86_400_000);
   const geometry = JSON.stringify({
@@ -165,7 +169,7 @@ async function checkDcRuntimeQuery() {
     orderByFields: 'START_DATE DESC',
     resultRecordCount: '1',
   });
-  const response = await fetchWithRetry(`${layer}/query?${params.toString()}`);
+  const response = await fetchWithRetry(`${dcLayerUrl}/query?${params.toString()}`);
   const payload = await response.json();
   if (payload.error) throw new Error(`Washington DC: ${payload.error.message ?? 'runtime ArcGIS query error'}`);
   if (!Array.isArray(payload.features) || payload.features.length === 0) {
@@ -195,7 +199,7 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  console.log('\nAll nine runtime-shaped provider queries passed.');
+  console.log('\nAll six runtime-shaped provider queries passed.');
 }
 
 await main();

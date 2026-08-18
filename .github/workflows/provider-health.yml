@@ -14,9 +14,9 @@ concurrency:
 
 jobs:
   contracts:
-    name: Validate nine official city feeds
+    name: Validate six official city feeds
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -25,5 +25,5 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
-      - name: Check provider schemas, sample geometry, CORS, and map style
-        run: npm run test:data
+      - name: Check schemas, sample geometry, runtime queries, CORS, and map style
+        run: npm run test:contracts

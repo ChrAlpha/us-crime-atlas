@@ -13,6 +13,7 @@ export interface AdaptiveSocrataProviderConfig<Key extends string> {
   latitudeKey?: Key;
   longitudeKey?: Key;
   pointKey?: Key;
+  coordinateFieldsAreText?: boolean;
   mapRow(row: Record<string, unknown>, fields: ResolvedSocrataFields<Key>): Incident | null;
 }
 
@@ -59,6 +60,10 @@ function sourceStamp(date: Date) {
   return date.toISOString().replace(/Z$/, '');
 }
 
+function numericField(field: string) {
+  return `to_number(${field})`;
+}
+
 function resolvedQueryGeometry<Key extends string>(
   config: AdaptiveSocrataProviderConfig<Key>,
   fields: ResolvedSocrataFields<Key>,
@@ -68,16 +73,27 @@ function resolvedQueryGeometry<Key extends string>(
   const latitudeField = config.latitudeKey ? fields[config.latitudeKey] : null;
   const longitudeField = config.longitudeKey ? fields[config.longitudeKey] : null;
   if (latitudeField && longitudeField) {
+    const latitude = config.coordinateFieldsAreText ? numericField(latitudeField) : latitudeField;
+    const longitude = config.coordinateFieldsAreText ? numericField(longitudeField) : longitudeField;
+    const validityFilters = config.coordinateFieldsAreText
+      ? [
+          `${latitudeField} NOT IN ('REDACTED', '-', '')`,
+          `${longitudeField} NOT IN ('REDACTED', '-', '')`,
+        ]
+      : [];
     return [
-      `${latitudeField} >= ${box.south.toFixed(7)}`,
-      `${latitudeField} <= ${box.north.toFixed(7)}`,
-      `${longitudeField} >= ${box.west.toFixed(7)}`,
-      `${longitudeField} <= ${box.east.toFixed(7)}`,
+      ...validityFilters,
+      `${latitude} >= ${box.south.toFixed(7)}`,
+      `${latitude} <= ${box.north.toFixed(7)}`,
+      `${longitude} >= ${box.west.toFixed(7)}`,
+      `${longitude} <= ${box.east.toFixed(7)}`,
     ];
   }
   const pointField = config.pointKey ? fields[config.pointKey] : null;
   if (pointField) {
-    return [`within_box(${pointField}, ${box.north.toFixed(7)}, ${box.west.toFixed(7)}, ${box.south.toFixed(7)}, ${box.east.toFixed(7)})`];
+    return [
+      `within_box(${pointField}, ${box.north.toFixed(7)}, ${box.west.toFixed(7)}, ${box.south.toFixed(7)}, ${box.east.toFixed(7)})`,
+    ];
   }
   throw new Error(`${config.meta.agency} is missing resolved coordinate fields`);
 }

@@ -10,17 +10,14 @@ The atlas deliberately avoids an opaque “safety score.” It shows observed in
 | --- | --- | --- | --- |
 | New York City | NYPD | Socrata | Block midpoint |
 | Washington, DC | Metropolitan Police Department | ArcGIS Feature Service | Generalized block |
-| Baltimore | Baltimore Police Department | Socrata | Approximate incident location |
 | Chicago | Chicago Police Department | Socrata | Shifted block location |
-| Nashville | Metropolitan Nashville Police Department | Socrata | Approximate incident location |
-| Austin | Austin Police Department | Socrata | Approximate report location |
 | Los Angeles | Los Angeles Police Department | Socrata | Approximate block |
 | San Francisco | San Francisco Police Department | Socrata | Nearby intersection |
-| Seattle | Seattle Police Department | Socrata | Approximate 100-block |
+| Seattle | Seattle Police Department | Socrata | Approximate one-hundred block |
 
 The map and place search work throughout the United States. Incident analysis is enabled only where a verified provider adapter exists, so unsupported areas never silently receive fabricated events, a citywide average, or a national proxy.
 
-This first nationwide expansion wave deliberately prioritizes maintainable official feeds over a large but unverifiable city list. Socrata providers resolve documented field aliases from live dataset metadata, while the Washington, DC provider resolves the current-year incident Feature Service through the official DCGIS ArcGIS catalog. A scheduled workflow checks every provider twice weekly for schema drift, sample geometry, and endpoint availability.
+This coverage wave adds Los Angeles, Seattle, and Washington, DC to the original New York City, Chicago, and San Francisco providers. It deliberately excludes candidate feeds that do not currently expose usable public point locations or whose reviewed endpoint has disappeared. Coverage count is never allowed to outrank source integrity.
 
 ## Product behavior
 
@@ -62,30 +59,33 @@ npm run typecheck
 npm run test:unit
 npm run build
 npm run test:data
+npm run test:runtime
 npx playwright install chromium
 npm run test:e2e
 ```
 
-`test:data` performs live metadata and sample-record checks against all nine official city feeds and validates the OpenFreeMap MapLibre style. Playwright mocks source responses so browser acceptance remains deterministic while the separate live contract job detects upstream schema drift.
+`test:data` validates live source metadata, required fields, usable sample geometry, and the OpenFreeMap style. `test:runtime` executes the same 180-day date and spatial query shape used by the product against all six registered city sources. Playwright mocks source responses so browser acceptance remains deterministic while the live jobs detect upstream drift.
 
 ## Architecture
 
 ```text
-Official Socrata metadata + rows       Official ArcGIS catalog + features
-                 │                                      │
-                 └──────── Provider boundaries ─────────┘
-                                      │
-                                      ▼
-             Normalize category, time, geometry, identity, precision
-                                      │
-                                      ▼
-       Analysis engine ── radius filter, equal-window trend, nearby annulus density
-                                      │
-                    ├── MapLibre clustered GeoJSON layers
-                    └── responsive evidence inspector
+Official Socrata metadata + rows       Official ArcGIS feature layer
+                 │                                  │
+                 └──────── Provider boundaries ─────┘
+                                  │
+                                  ▼
+         Normalize category, time, geometry, identity, precision
+                                  │
+                                  ▼
+   Analysis engine ── radius filter, equal-window trend, nearby annulus density
+                                  │
+                ├── MapLibre clustered GeoJSON layers
+                └── responsive evidence inspector
 ```
 
-A new provider must declare its publisher, machine-readable endpoint, field aliases or feature schema, row identity, occurrence-time semantics, geographic bounds, update cadence, known lag, and public spatial transformation. It then joins the registry in `src/data/providers/index.ts` only after mapper tests and a live source contract pass.
+Stable Socrata providers use explicit schemas. Expansion providers resolve only reviewed aliases from live dataset metadata. Seattle’s published coordinates are text fields, so its bounded query explicitly excludes privacy placeholders before converting coordinates to numbers. Washington, DC uses the official 2026 MPD Feature Layer directly rather than selecting a similarly titled ArcGIS item heuristically.
+
+A new provider must declare its publisher, machine-readable endpoint, row identity, occurrence-time semantics, geographic bounds, update cadence, known lag, and public spatial transformation. It joins the registry only after mapper tests, live metadata checks, a runtime-shaped spatial query, and responsive browser acceptance pass.
 
 ## Acceptance evidence
 
@@ -94,9 +94,9 @@ The CI workflow requires:
 1. strict TypeScript checking;
 2. unit coverage thresholds for geospatial, normalization, URL-state, analysis, Socrata, ArcGIS, and city mapper contracts;
 3. a production Vite build;
-4. live official-source and MapLibre-style contract tests;
-5. Chromium acceptance at desktop and iPhone-class viewports;
-6. interaction checks for provider switching, filters, radius and URL state;
+4. live official-source and MapLibre-style contracts;
+5. live runtime-shaped date and spatial queries for all six cities;
+6. Chromium acceptance at desktop and iPhone-class viewports;
 7. an explicit browser path through an ArcGIS-backed provider;
 8. horizontal-overflow checks and a serious/critical axe accessibility audit;
 9. retained desktop/mobile screenshots and Playwright traces as workflow artifacts.
@@ -105,7 +105,7 @@ The detailed release criteria are in [Acceptance criteria](docs/ACCEPTANCE.md).
 
 ## Provider health
 
-`.github/workflows/provider-health.yml` runs every Monday and Thursday and can also be dispatched manually. It fails when a required source field disappears, a sample record no longer exposes usable geometry, an ArcGIS catalog item cannot be resolved, or the base-map style contract changes. A failing health run is a signal to investigate the publisher before changing or suppressing a contract.
+`.github/workflows/provider-health.yml` runs every Monday and Thursday and can also be dispatched manually. It checks live metadata, required semantics, usable geometry, runtime-shaped source queries, and the base-map style. A failing source remains a failure to investigate; the workflow does not silently drop it or substitute proxy data.
 
 ## Responsible-use notice
 

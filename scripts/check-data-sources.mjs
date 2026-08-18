@@ -57,61 +57,19 @@ const socrataSources = [
     requireIdentity: true,
     aliases: {
       id: ['offense_id', 'report_number'],
-      date: ['offense_start_datetime', 'report_datetime'],
-      category: ['offense', 'offense_parent_group'],
+      date: ['offense_date', 'report_date_time'],
+      category: ['offense_sub_category', 'offense_category', 'nibrs_crime_against_category'],
       latitude: ['latitude'],
       longitude: ['longitude'],
-      point: ['report_location', 'geocoded_column'],
-    },
-  },
-  {
-    name: 'Austin Crime Reports',
-    endpoint: 'https://data.austintexas.gov/resource/fdj4-gpfu.json',
-    requireIdentity: true,
-    aliases: {
-      id: ['incident_report_number', 'unique_key'],
-      date: ['occ_date_time', 'occurrence_date_time', 'occurred_date_time'],
-      category: ['crime_type', 'highest_offense_description'],
-      latitude: ['latitude'],
-      longitude: ['longitude'],
-      point: ['location', 'geocoded_column'],
-    },
-  },
-  {
-    name: 'Baltimore Part 1 Crime Data',
-    endpoint: 'https://data.baltimorecity.gov/resource/wsfq-mvij.json',
-    requireIdentity: false,
-    aliases: {
-      id: ['objectid', 'rowid', 'incidentid'],
-      date: ['crimedatetime', 'crime_date_time'],
-      category: ['description'],
-      latitude: ['latitude'],
-      longitude: ['longitude'],
-      point: ['geolocation', 'location_1', 'geocoded_column'],
-    },
-  },
-  {
-    name: 'Nashville Police Department Incidents',
-    endpoint: 'https://data.nashville.gov/resource/2u6v-ujjs.json',
-    requireIdentity: true,
-    aliases: {
-      id: ['incident_number'],
-      date: ['incident_occurred', 'occurred', 'incident_reported'],
-      category: ['offense_description', 'offense_nibrs'],
-      latitude: ['latitude'],
-      longitude: ['longitude'],
-      point: ['mapped_location', 'location', 'geocoded_column'],
+      point: [],
     },
   },
 ];
 
-const currentYear = new Date().getUTCFullYear();
 const dcArcgisSource = {
-  name: `Washington DC Crime Incidents in ${currentYear}`,
-  searchUrl: 'https://www.arcgis.com/sharing/rest/search',
-  searchQuery: `owner:DCGIS type:"Feature Service" "Crime Incidents in ${currentYear}"`,
-  titleIncludes: `crime incidents in ${currentYear}`,
-  requiredFields: ['START_DATE', 'OFFENSE'],
+  name: 'Washington DC Crime Incidents - 2026',
+  layerUrl: 'https://maps2.dcgis.dc.gov/dcgis/rest/services/FEEDS/MPD/FeatureServer/41',
+  requiredFields: ['CCN', 'START_DATE', 'OFFENSE', 'LATITUDE', 'LONGITUDE', 'OBJECTID'],
 };
 
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -151,23 +109,28 @@ function resolveAliases(aliases, availableFields) {
   );
 }
 
+function finiteCoordinates(longitude, latitude) {
+  const lon = Number(longitude);
+  const lat = Number(latitude);
+  if (!Number.isFinite(lon) || !Number.isFinite(lat)) return null;
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+  if (Math.abs(lon) < 0.0001 && Math.abs(lat) < 0.0001) return null;
+  if (lon === -1 && lat === -1) return null;
+  return [lon, lat];
+}
+
 function pointCoordinates(value) {
   if (!value || typeof value !== 'object') return null;
   if (Array.isArray(value.coordinates) && value.coordinates.length >= 2) {
-    const longitude = Number(value.coordinates[0]);
-    const latitude = Number(value.coordinates[1]);
-    return Number.isFinite(longitude) && Number.isFinite(latitude) ? [longitude, latitude] : null;
+    return finiteCoordinates(value.coordinates[0], value.coordinates[1]);
   }
-  const longitude = Number(value.longitude);
-  const latitude = Number(value.latitude);
-  return Number.isFinite(longitude) && Number.isFinite(latitude) ? [longitude, latitude] : null;
+  return finiteCoordinates(value.longitude, value.latitude);
 }
 
 function rowCoordinates(row, fields) {
   if (fields.latitude && fields.longitude) {
-    const latitude = Number(row[fields.latitude]);
-    const longitude = Number(row[fields.longitude]);
-    if (Number.isFinite(latitude) && Number.isFinite(longitude)) return [longitude, latitude];
+    const coordinates = finiteCoordinates(row[fields.longitude], row[fields.latitude]);
+    if (coordinates) return coordinates;
   }
   return fields.point ? pointCoordinates(row[fields.point]) : null;
 }
@@ -199,21 +162,18 @@ async function checkSocrataSource(source) {
     $select: selected.join(','),
     $where: `${fields.date} IS NOT NULL AND ${fields.category} IS NOT NULL AND ${geometryWhere}`,
     $order: `${fields.date} DESC`,
-    $limit: '1',
+    $limit: '100',
   });
   const response = await fetchWithRetry(`${source.endpoint}?${params.toString()}`, {
     headers: { Accept: 'application/json', Origin: 'https://us-crime-atlas.example' },
   });
   const payload = await response.json();
   if (!Array.isArray(payload) || payload.length === 0) {
-    throw new Error(`${source.name}: expected at least one geocoded record`);
+    throw new Error(`${source.name}: expected at least one recent record`);
   }
-  const coordinates = rowCoordinates(payload[0], fields);
-  if (!coordinates || coordinates.some((coordinate) => !Number.isFinite(coordinate))) {
-    throw new Error(`${source.name}: selected record did not expose usable coordinates`);
-  }
-  if (Math.abs(coordinates[0]) < 0.0001 && Math.abs(coordinates[1]) < 0.0001) {
-    throw new Error(`${source.name}: selected record exposed only a zero coordinate`);
+  const record = payload.find((row) => rowCoordinates(row, fields));
+  if (!record) {
+    throw new Error(`${source.name}: the latest 100 coordinate-bearing rows exposed no usable numeric location`);
   }
 
   const cors = response.headers.get('access-control-allow-origin') ?? 'not advertised to this request';
@@ -222,49 +182,33 @@ async function checkSocrataSource(source) {
   console.log(`  CORS: ${cors}`);
 }
 
-function normalizeLayerUrl(serviceUrl) {
-  const normalized = serviceUrl.replace(/\/$/, '');
-  return /\/FeatureServer\/\d+$/i.test(normalized) ? normalized : `${normalized}/0`;
-}
-
 function attributeName(available, expected) {
   return available.find((field) => field.toLowerCase() === expected.toLowerCase()) ?? null;
 }
 
 async function checkDcArcgisSource() {
-  const search = new URL(dcArcgisSource.searchUrl);
-  search.search = new URLSearchParams({ f: 'json', num: '100', q: dcArcgisSource.searchQuery }).toString();
-  const searchResponse = await fetchWithRetry(search, { headers: { Accept: 'application/json' } });
-  const searchPayload = await searchResponse.json();
-  const needle = dcArcgisSource.titleIncludes.toLowerCase();
-  const item = (searchPayload.results ?? []).find(
-    (candidate) => candidate.title?.toLowerCase().includes(needle) && candidate.url,
-  );
-  if (!item?.url) throw new Error(`${dcArcgisSource.name}: official DCGIS catalog item was not found`);
-  const layer = normalizeLayerUrl(item.url);
-
-  const layerResponse = await fetchWithRetry(`${layer}?f=json`, { headers: { Accept: 'application/json' } });
-  const metadata = await layerResponse.json();
+  const metadataResponse = await fetchWithRetry(`${dcArcgisSource.layerUrl}?f=json`, {
+    headers: { Accept: 'application/json' },
+  });
+  const metadata = await metadataResponse.json();
   if (metadata.error) throw new Error(`${dcArcgisSource.name}: ${metadata.error.message ?? 'layer metadata error'}`);
+  if (metadata.name !== 'Crime Incidents - 2026') {
+    throw new Error(`${dcArcgisSource.name}: layer 41 now identifies as ${metadata.name ?? 'an unnamed layer'}`);
+  }
   const available = (metadata.fields ?? []).map((field) => field.name).filter(Boolean);
-  const resolved = Object.fromEntries(
-    dcArcgisSource.requiredFields.map((field) => [field, attributeName(available, field)]),
-  );
-  const missing = Object.entries(resolved).filter(([, actual]) => !actual).map(([expected]) => expected);
+  const missing = dcArcgisSource.requiredFields.filter((field) => !attributeName(available, field));
   if (missing.length > 0) throw new Error(`${dcArcgisSource.name}: layer is missing ${missing.join(', ')}`);
-  const idField = attributeName(available, 'CCN') ?? attributeName(available, 'OBJECTID');
-  if (!idField) throw new Error(`${dcArcgisSource.name}: layer has no usable row identity`);
 
   const params = new URLSearchParams({
     f: 'json',
-    where: `${resolved.START_DATE} IS NOT NULL`,
+    where: 'START_DATE IS NOT NULL',
     outFields: '*',
     returnGeometry: 'true',
     outSR: '4326',
-    orderByFields: `${resolved.START_DATE} DESC`,
+    orderByFields: 'START_DATE DESC',
     resultRecordCount: '1',
   });
-  const response = await fetchWithRetry(`${layer}/query?${params.toString()}`, {
+  const response = await fetchWithRetry(`${dcArcgisSource.layerUrl}/query?${params.toString()}`, {
     headers: { Accept: 'application/json' },
   });
   const payload = await response.json();
@@ -276,13 +220,13 @@ async function checkDcArcgisSource() {
   const attributes = feature.attributes ?? {};
   const longitudeField = attributeName(Object.keys(attributes), 'LONGITUDE');
   const latitudeField = attributeName(Object.keys(attributes), 'LATITUDE');
-  const longitude = Number(longitudeField ? attributes[longitudeField] : feature.geometry?.x);
-  const latitude = Number(latitudeField ? attributes[latitudeField] : feature.geometry?.y);
-  if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) {
-    throw new Error(`${dcArcgisSource.name}: latest feature has no usable WGS84 geometry`);
-  }
+  const coordinates = finiteCoordinates(
+    longitudeField ? attributes[longitudeField] : feature.geometry?.x,
+    latitudeField ? attributes[latitudeField] : feature.geometry?.y,
+  );
+  if (!coordinates) throw new Error(`${dcArcgisSource.name}: latest feature has no usable WGS84 location`);
   console.log(`✓ ${dcArcgisSource.name}`);
-  console.log(`  layer: ${layer}`);
+  console.log(`  layer: ${dcArcgisSource.layerUrl}`);
 }
 
 async function checkMapStyle() {

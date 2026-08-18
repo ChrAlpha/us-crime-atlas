@@ -6,18 +6,15 @@ US Crime Atlas answers a narrow question:
 
 > What do recently published official incident records show around this travel area, and how does that observation compare with the immediately surrounding area?
 
-It does not claim to estimate the probability that a particular traveler will be harmed. The distinction is reflected in the UI: the product uses “reported activity” and “observed evidence,” never an absolute neighborhood safety grade.
+It does not claim to estimate the probability that a particular traveler will be harmed. The product uses “reported activity” and “observed evidence,” never an absolute neighborhood safety grade.
 
 ## Source hierarchy and current coverage
 
-The application uses incident-level publications from local law-enforcement agencies. The first nationwide expansion wave covers:
+The application uses incident-level publications from local law-enforcement agencies. The current release covers:
 
 - New York City Police Department Complaint Data Current (YTD), Socrata dataset `5uac-w243`.
-- Metropolitan Police Department of the District of Columbia current-year Crime Incidents layer, official ArcGIS Feature Service resolved through the DCGIS catalog.
-- Baltimore Police Department Part 1 Crime Data, Socrata dataset `wsfq-mvij`.
+- Metropolitan Police Department of the District of Columbia Crime Incidents - 2026, official ArcGIS Feature Layer `FEEDS/MPD/FeatureServer/41`.
 - Chicago Police Department Crimes — 2001 to Present, Socrata dataset `ijzp-q8t2`.
-- Metropolitan Nashville Police Department Incidents, Socrata dataset `2u6v-ujjs`.
-- Austin Police Department Crime Reports, Socrata dataset `fdj4-gpfu`.
 - Los Angeles Police Department Crime Data from 2020 to Present, Socrata dataset `2nrs-mtv8`.
 - San Francisco Police Department Incident Reports — 2018 to Present, Socrata dataset `wg3w-h783`.
 - Seattle Police Department Crime Data: 2008–Present, Socrata dataset `tazs-3rd5`.
@@ -35,11 +32,17 @@ Each provider declares:
 
 The application does not substitute synthetic events, a citywide aggregate, or a national average when a local incident-level provider is unavailable.
 
+Candidate sources are deferred when the current official publication lacks usable public coordinates or the reviewed machine-readable endpoint is no longer live. Coverage count is not treated as evidence quality.
+
 ## Provider boundaries
 
-### Socrata
+### Stable Socrata schemas
 
-Legacy providers with stable schemas use an explicit `$select`, date range, coordinate bounds, sort order, and record limit. New expansion providers use the adaptive Socrata boundary:
+New York City, Chicago, and San Francisco use explicit `$select`, date range, coordinate bounds, sort order, and record-limit contracts. A publisher field change therefore fails visibly in the live contract job.
+
+### Adaptive Socrata schemas
+
+Los Angeles and Seattle use the adaptive Socrata boundary:
 
 1. Fetch the official dataset metadata from `/api/views/{dataset-id}`.
 2. Resolve each semantic role—identity, occurrence date, offense, and geometry—from a documented ordered alias list.
@@ -50,9 +53,11 @@ Legacy providers with stable schemas use an explicit `$select`, date range, coor
 
 The alias mechanism handles publisher field renames that retain an explicitly reviewed synonym. It does not guess arbitrary columns or silently accept a semantically different replacement.
 
+Seattle publishes latitude and longitude as text and uses privacy placeholders such as `REDACTED` and `-`. Its query excludes those placeholders before applying `to_number(...)` for bounded spatial filtering. Rows with nonnumeric, sentinel, zero, or out-of-range coordinates are also rejected after retrieval.
+
 ### ArcGIS Feature Service
 
-The Washington, DC provider resolves the current-year Crime Incidents service through the official DCGIS ArcGIS catalog. It then queries the feature layer using:
+Washington, DC uses the reviewed official `Crime Incidents - 2026` layer directly rather than searching a public catalog by title. The provider queries the layer using:
 
 - a SQL timestamp occurrence-date predicate;
 - an `esriGeometryEnvelope` around the analysis request;
@@ -60,7 +65,7 @@ The Washington, DC provider resolves the current-year Crime Incidents service th
 - publisher attributes plus returned feature geometry;
 - a fixed result limit and explicit `exceededTransferLimit` handling.
 
-Catalog resolution is cached for the session but retried after a failed lookup. The provider fails rather than falling back to a similarly titled unofficial item.
+The health contract verifies that layer 41 still identifies itself as `Crime Incidents - 2026` and exposes the required identity, date, category, and coordinate fields. A future annual layer rollover must be reviewed explicitly rather than guessed.
 
 ## Query geometry
 
@@ -142,27 +147,29 @@ Evidence confidence is based on current selected-plus-nearby sample size and is 
 
 Many local portals publish timezone-free local timestamps. Socrata adapters preserve the source timestamp for display and extract the published local hour for the nighttime metric. A consistent pseudo-UTC epoch is used for equal-window filtering. This avoids applying the viewer’s browser timezone to the source’s local clock, but window boundaries can differ from true local civil time by several hours.
 
-ArcGIS epoch attributes are converted to ISO timestamps after the service applies the timestamp predicate. Publishers may encode local civil time or UTC differently; the provider caveat and raw source remain authoritative.
+ArcGIS epoch attributes are converted to ISO timestamps after the service applies the timestamp predicate. The DC layer documents Eastern time. The raw publisher remains authoritative when interpreting edge cases.
 
 Nighttime is defined as 10:00 PM through 4:59 AM in the normalized source timestamp.
 
 ## Identity and duplicate semantics
 
-Whenever the publisher exposes a stable complaint, report, offense, or object identifier, it is namespaced by provider. A compound key is used when the source separates incident and offense identifiers. Baltimore’s adapter can derive a deterministic fallback from occurrence time, offense code, coordinates, and published category when a stable row identifier is absent.
+Whenever the publisher exposes a stable complaint, report, offense, or object identifier, it is namespaced by provider. Seattle combines offense and report identifiers because one report can contain multiple offenses.
 
 A normalized row is still not guaranteed to equal one victim or one underlying event. Local portals differ in whether a row represents a complaint, offense, victim, report, or later administrative revision.
 
 ## Spatial precision
 
-Every public coordinate is treated as approximate unless a provider explicitly documents otherwise. Current transformations include block midpoints, 100-block locations, shifted blocks, nearby intersections, generalized blocks, and approximate report coordinates.
+Every public coordinate is treated as approximate unless a provider explicitly documents otherwise. Current transformations include block midpoints, one-hundred-block locations, shifted blocks, nearby intersections, generalized blocks, and approximate report coordinates.
 
 Map popovers and source notes state the precision. The UI must not imply that a point identifies a particular business, hotel, residence, or person.
 
 ## Live contracts and health monitoring
 
-`npm run test:data` checks all nine sources and the base-map style. For Socrata sources it verifies metadata alias resolution and requests one geocoded record using only resolved columns. This distinguishes a true schema removal from a normal sparse JSON row in which an optional value is null and therefore omitted.
+`npm run test:data` checks all six sources and the base-map style. Socrata checks resolve reviewed metadata aliases and inspect recent rows for usable numeric geometry. The Washington, DC check verifies the reviewed layer identity, required fields, and one WGS84 feature.
 
-For Washington, DC it resolves the official current-year catalog item, inspects layer fields, and requests one WGS84 feature. The scheduled provider-health workflow runs every Monday and Thursday. A contract failure must be investigated against the official publisher; it must not be suppressed merely to keep a green badge.
+`npm run test:runtime` executes a 180-day date-and-space query shaped like the product request against every registered provider. This catches failures that metadata-only checks miss, including invalid date syntax, text-coordinate conversion, envelope semantics, and an endpoint that returns no recent records.
+
+The scheduled provider-health workflow runs every Monday and Thursday. A contract failure must be investigated against the official publisher; it must not be suppressed merely to keep a green badge.
 
 ## Known limitations
 
@@ -182,7 +189,7 @@ For Washington, DC it resolves the official current-year catalog item, inspects 
 A provider should not be added until all of the following are documented and tested:
 
 - official publisher and landing page;
-- stable machine-readable endpoint or official catalog resolution rule;
+- stable machine-readable endpoint or reviewed official layer-resolution rule;
 - occurrence/report date semantics;
 - row identity semantics;
 - category and description fields;
@@ -190,6 +197,7 @@ A provider should not be added until all of the following are documented and tes
 - update cadence and expected lag;
 - geographic bounds;
 - a live contract test for required semantics;
+- a runtime-shaped date and spatial query;
 - mapper unit tests for representative and invalid rows;
 - deterministic browser coverage for every newly introduced backend family;
 - a source card with plain-language caveats.

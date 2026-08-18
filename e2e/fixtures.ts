@@ -155,41 +155,32 @@ export async function mockOfficialSources(page: Page, mode: 'success' | 'error' 
   );
 
   await emptyAdaptiveSource(page, '2nrs-mtv8', [
-    'dr_no', 'date_occ', 'time_occ', 'crm_cd_desc', 'premis_desc', 'location', 'area_name', 'lat', 'lon',
+    'dr_no',
+    'date_occ',
+    'time_occ',
+    'crm_cd_desc',
+    'premis_desc',
+    'location',
+    'area_name',
+    'lat',
+    'lon',
   ]);
   await emptyAdaptiveSource(page, 'tazs-3rd5', [
-    'offense_id', 'report_number', 'offense_start_datetime', 'offense', 'offense_parent_group',
-    '100_block_address', 'mcpp', 'latitude', 'longitude',
-  ]);
-  await emptyAdaptiveSource(page, 'fdj4-gpfu', [
-    'incident_report_number', 'occ_date_time', 'crime_type', 'category_description',
-    'address', 'apd_district', 'location',
-  ]);
-  await emptyAdaptiveSource(page, 'wsfq-mvij', [
-    'objectid', 'crimecode', 'crimedatetime', 'description', 'weapon',
-    'location', 'neighborhood', 'latitude', 'longitude',
-  ]);
-  await emptyAdaptiveSource(page, '2u6v-ujjs', [
-    'incident_number', 'offense_number', 'incident_occurred', 'offense_description',
-    'offense_category', 'incident_location', 'zone', 'latitude', 'longitude',
+    'report_number',
+    'report_date_time',
+    'offense_id',
+    'offense_date',
+    'nibrs_group_a_b',
+    'nibrs_crime_against_category',
+    'offense_sub_category',
+    'block_address',
+    'latitude',
+    'longitude',
+    'precinct',
+    'neighborhood',
   ]);
 
-  const currentYear = new Date().getUTCFullYear();
-  await page.route('**/sharing/rest/search?*', (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        results: [
-          {
-            title: `Crime Incidents in ${currentYear}`,
-            url: 'https://services.example.test/arcgis/rest/services/DC_Crime/FeatureServer',
-          },
-        ],
-      }),
-    }),
-  );
-  await page.route('**/DC_Crime/FeatureServer/0/query?*', (route) =>
+  await page.route('**/FEEDS/MPD/FeatureServer/41/query?*', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(dcFixture) }),
   );
 

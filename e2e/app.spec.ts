@@ -76,7 +76,7 @@ test('loads an ArcGIS-backed official city feed', async ({ page }) => {
   await expect(
     page.getByText('Metropolitan Police Department of the District of Columbia').first(),
   ).toBeVisible();
-  await expect(page.getByText(`Crime Incidents in ${new Date().getUTCFullYear()}`)).toBeVisible();
+  await expect(page.getByText('Crime Incidents - 2026')).toBeVisible();
   await expect(page.getByTestId('reported-count')).toHaveText('4');
   await expect(page).toHaveURL(/lat=38\.8895/);
   await expectNoHorizontalOverflow(page);

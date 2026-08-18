@@ -6,6 +6,7 @@ on:
       - main
       - 'feat/**'
       - 'fix/**'
+      - 'coverage/**'
   pull_request:
 
 permissions:
@@ -46,7 +47,7 @@ jobs:
   data-contract:
     name: Live official source contracts
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -55,8 +56,8 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
-      - name: Validate city feeds and MapLibre style
-        run: npm run test:data
+      - name: Validate source metadata, runtime queries, and MapLibre style
+        run: npm run test:contracts
 
   browser-acceptance:
     name: Desktop and mobile browser acceptance
