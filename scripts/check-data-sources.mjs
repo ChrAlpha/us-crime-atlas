@@ -151,7 +151,9 @@ async function checkSocrataSource(source) {
   const hasPoint = Boolean(fields.point);
   if (!hasCoordinatePair && !hasPoint) missing.push('geometry');
   if (missing.length > 0) {
-    throw new Error(`${source.name}: metadata is missing ${missing.join(', ')}`);
+    throw new Error(
+      `${source.name}: metadata is missing ${missing.join(', ')}; available fields: ${availableFields.join(', ')}`,
+    );
   }
 
   const selected = [...new Set(Object.values(fields).filter(Boolean))];

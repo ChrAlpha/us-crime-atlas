@@ -94,7 +94,7 @@ const config: AdaptiveSocrataProviderConfig<TestKey> = {
 };
 
 const query: IncidentQuery = {
-  center: [-75, 40],
+  center: [-75.5, 40.5],
   radiusMeters: 3000,
   windowDays: 30,
   now: new Date('2026-08-17T12:00:00.000Z'),
@@ -122,14 +122,17 @@ describe('adaptive Socrata provider boundary', () => {
     expect(url.searchParams.get('$select')).toBe('incident_id,occurred_at,offense,lat,lon');
     expect(url.searchParams.get('$order')).toBe('occurred_at DESC');
     expect(url.searchParams.get('$where')).toContain("occurred_at >= '2026-06-18T12:00:00.000'");
-    expect(url.searchParams.get('$where')).toContain("lat >= '39.973");
-    expect(url.searchParams.get('$where')).toContain("lon <= '-75.035");
+    expect(url.searchParams.get('$where')).toContain("lat >= '40.473");
+    expect(url.searchParams.get('$where')).toContain("lon <= '-75.535");
 
     const pointFields = { ...resolved, latitude: null, longitude: null, point: 'location' };
     const pointUrl = new URL(buildAdaptiveSocrataUrl(config, pointFields, query));
     expect(pointUrl.searchParams.get('$where')).toContain('within_box(location');
     expect(() => buildAdaptiveSocrataUrl(config, { ...pointFields, point: null }, query)).toThrow('coordinate fields');
     expect(() => buildAdaptiveSocrataUrl(config, { ...resolved, date: null }, query)).toThrow('date field');
+    expect(() => buildAdaptiveSocrataUrl(config, resolved, { ...query, center: [-75, 40] })).toThrow(
+      'cross a degree boundary',
+    );
   });
 
   it('resolves metadata once, fetches rows, filters invalid records, and reports provenance', async () => {
