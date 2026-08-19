@@ -15,6 +15,7 @@ The application uses incident-level publications from local law-enforcement agen
 - New York City Police Department Complaint Data Current (YTD), Socrata dataset `5uac-w243`.
 - Metropolitan Police Department of the District of Columbia Crime Incidents - 2026, official ArcGIS Feature Layer `FEEDS/MPD/FeatureServer/41`.
 - Chicago Police Department Crimes — 2001 to Present, Socrata dataset `ijzp-q8t2`.
+- Dallas Police Department Police Incidents, Socrata dataset `qv6i-rri7`.
 - Los Angeles Police Department NIBRS Offenses Dataset 2026 to Present, Socrata dataset `k7nn-b2ep`.
 - San Francisco Police Department Incident Reports — 2018 to Present, Socrata dataset `wg3w-h783`.
 - Seattle Police Department Crime Data: 2008–Present, Socrata dataset `tazs-3rd5`.
@@ -42,7 +43,7 @@ New York City, Chicago, and San Francisco use explicit `$select`, date range, co
 
 ### Adaptive Socrata schemas
 
-Los Angeles and Seattle use the adaptive Socrata boundary:
+Dallas, Los Angeles, and Seattle use the adaptive Socrata boundary:
 
 1. Fetch the official dataset metadata from `/api/views/{dataset-id}`.
 2. Resolve each semantic role—identity, occurrence date, offense, and geometry—from a documented ordered alias list.
@@ -54,6 +55,8 @@ Los Angeles and Seattle use the adaptive Socrata boundary:
 The alias mechanism handles publisher field renames that retain an explicitly reviewed synonym. It does not guess arbitrary columns or silently accept a semantically different replacement.
 
 Seattle publishes latitude and longitude as text and uses privacy placeholders such as `REDACTED` and `-`. Because the registered Seattle bounds remain inside fixed latitude and longitude degree bands, its query excludes those placeholders and applies sign-aware textual bounds. Coordinates are then parsed numerically and exact Haversine filtering remains authoritative. Rows with nonnumeric, sentinel, zero, or out-of-range coordinates are rejected after retrieval.
+
+Dallas uses the official public geocoded point attached to each RMS offense row. The location is treated as approximate, regardless of whether the record also exposes a street address, and the interface does not present it as a specific premises.
 
 ### ArcGIS Feature Service
 
@@ -165,7 +168,7 @@ Map popovers and source notes state the precision. The UI must not imply that a 
 
 ## Live contracts and health monitoring
 
-`npm run test:data` checks all six sources and the base-map style. Socrata checks resolve reviewed metadata aliases and inspect recent rows for usable numeric geometry. The Washington, DC check verifies the reviewed layer identity, required fields, and one WGS84 feature.
+`npm run test:data` checks all seven sources and the base-map style. Socrata checks resolve reviewed metadata aliases and inspect recent rows for usable numeric geometry. The Washington, DC check verifies the reviewed layer identity, required fields, and one WGS84 feature.
 
 `npm run test:runtime` executes a 180-day date-and-space query shaped like the product request against every registered provider. This catches failures that metadata-only checks miss, including invalid date syntax, text-coordinate conversion, envelope semantics, and an endpoint that returns no recent records.
 

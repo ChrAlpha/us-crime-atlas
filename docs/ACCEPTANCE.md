@@ -5,7 +5,7 @@ A change is release-ready only when the relevant automated gates pass and the vi
 ## Functional
 
 - [ ] A supported featured place selects the correct local provider.
-- [ ] All six registered provider bounds resolve to the intended agency and do not overlap an unrelated city.
+- [ ] All seven registered provider bounds resolve to the intended agency and do not overlap an unrelated city.
 - [ ] A map click updates the analysis point and URL state.
 - [ ] Place search is submitted explicitly; it does not issue per-keystroke requests.
 - [ ] Radius options of 500 m, 1 km, and 2 km update the circle and analysis.
@@ -19,7 +19,7 @@ A change is release-ready only when the relevant automated gates pass and the vi
 
 ## Data integrity
 
-- [ ] New York City, Washington DC, Chicago, Los Angeles, San Francisco, and Seattle live endpoints resolve the required identity, date, category, and geometry semantics.
+- [ ] New York City, Washington DC, Chicago, Dallas, Los Angeles, San Francisco, and Seattle live endpoints resolve the required identity, date, category, and geometry semantics.
 - [ ] Adaptive Socrata providers resolve only explicitly reviewed aliases from official dataset metadata.
 - [ ] A missing required Socrata semantic fails closed rather than guessing another column.
 - [ ] Socrata providers support either a reviewed latitude/longitude pair or a reviewed Point field.
@@ -39,8 +39,8 @@ A change is release-ready only when the relevant automated gates pass and the vi
 ## Responsive UI and interaction
 
 - [ ] Desktop at 1440 × 960 keeps map, explorer, and evidence inspector usable simultaneously.
-- [ ] The six-place featured strip remains usable without page-level overflow.
-- [ ] The source dialog remains usable with six provider cards at desktop, tablet, and mobile widths.
+- [ ] The seven-place featured strip remains usable without page-level overflow.
+- [ ] The source dialog remains usable with seven provider cards at desktop, tablet, and mobile widths.
 - [ ] iPhone-class viewport keeps 44 px-class primary touch targets and has no horizontal overflow.
 - [ ] The mobile evidence sheet supports peek, half, and full states.
 - [ ] Search and analysis controls remain reachable without trapping page scroll.
@@ -63,8 +63,8 @@ A change is release-ready only when the relevant automated gates pass and the vi
 - [ ] `npm run typecheck`
 - [ ] `npm run test:unit` with configured coverage thresholds
 - [ ] `npm run build`
-- [ ] `npm run test:data` across all six official city contracts
-- [ ] `npm run test:runtime` across all six runtime-shaped provider queries
+- [ ] `npm run test:data` across all seven official city contracts
+- [ ] `npm run test:runtime` across all seven runtime-shaped provider queries
 - [ ] `npm run test:e2e` in desktop and mobile Chromium projects
 - [ ] Browser acceptance explicitly exercises one Socrata and one ArcGIS provider
 - [ ] Scheduled `.github/workflows/provider-health.yml` can run manually and is configured for twice-weekly checks
