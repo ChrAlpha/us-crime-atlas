@@ -64,6 +64,19 @@ const socrataSources = [
       point: [],
     },
   },
+  {
+    name: 'Dallas Police Incidents',
+    endpoint: 'https://www.dallasopendata.com/resource/qv6i-rri7.json',
+    requireIdentity: true,
+    aliases: {
+      id: ['servnumid', 'incidentnum'],
+      date: ['date1'],
+      category: ['nibrs_crime', 'nibrs_crime_category', 'offincident'],
+      latitude: [],
+      longitude: [],
+      point: ['geocoded_column'],
+    },
+  },
 ];
 
 const dcArcgisSource = {

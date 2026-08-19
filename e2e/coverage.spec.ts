@@ -11,18 +11,19 @@ const featuredPlaces = [
   'Times Square',
   'National Mall',
   'The Loop',
+  'Downtown Dallas',
   'Hollywood',
   'Union Square',
   'Pike Place',
 ];
 
-test('keeps six-city navigation and source disclosure usable', async ({ page }, testInfo) => {
+test('keeps seven-city navigation and source disclosure usable', async ({ page }, testInfo) => {
   await mockOfficialSources(page);
   await page.goto('/?e2e=1');
   await expect(page.getByTestId('reported-count')).toHaveText('5');
 
   const featured = page.getByLabel('Featured covered places');
-  await expect(featured.getByRole('button')).toHaveCount(6);
+  await expect(featured.getByRole('button')).toHaveCount(7);
   for (const label of featuredPlaces) {
     await expect(featured.getByRole('button', { name: label })).toBeAttached();
   }
@@ -38,7 +39,8 @@ test('keeps six-city navigation and source disclosure usable', async ({ page }, 
 
   const dialog = page.getByRole('dialog', { name: 'Sources & methodology' });
   await expect(dialog).toBeVisible();
-  await expect(dialog.locator('.provider-cards article')).toHaveCount(6);
+  await expect(dialog.locator('.provider-cards article')).toHaveCount(7);
+  await expect(dialog.getByText('Dallas, Texas')).toBeVisible();
   await expect(dialog.getByText('Los Angeles, California')).toBeVisible();
   await expect(dialog.getByText('Washington, District of Columbia')).toBeVisible();
   await expect(dialog.getByText('Seattle, Washington')).toBeVisible();

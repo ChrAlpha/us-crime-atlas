@@ -245,6 +245,71 @@ export const seattleProvider = createAdaptiveSocrataProvider<FieldKey>({
   mapRow: mapSeattleRow,
 });
 
+export const DALLAS_META: ProviderMeta = {
+  id: 'dallas',
+  city: 'Dallas',
+  state: 'TX',
+  label: 'Dallas, Texas',
+  agency: 'Dallas Police Department',
+  datasetName: 'Police Incidents',
+  endpoint: 'https://www.dallasopendata.com/resource/qv6i-rri7.json',
+  sourceUrl: 'https://www.dallasopendata.com/d/qv6i-rri7',
+  center: [-96.797, 32.7767],
+  zoom: 10.7,
+  bounds: { west: -97.04, south: 32.61, east: -96.52, north: 33.03 },
+  cadence: 'Updated daily',
+  delayNote: 'Published records are preliminary and can change as investigations and classifications progress.',
+  precision: 'approximate',
+  precisionNote: 'The public geocoded location is approximate and must not be treated as a specific premises.',
+  coverageNote: 'Dallas Police RMS incidents from June 2014 onward; one service report can contain multiple offense rows.',
+  lastVerified: '2026-08-19',
+};
+
+const dallasAliases = aliases({
+  id: ['servnumid', 'incidentnum'],
+  secondaryId: ['incidentnum'],
+  date: ['date1'],
+  time: ['time1'],
+  category: ['nibrs_crime', 'nibrs_crime_category', 'offincident'],
+  description: ['offincident', 'nibrs_crime_category', 'ucr_offdesc'],
+  location: ['incident_address'],
+  area: ['division', 'community', 'beat'],
+  point: ['geocoded_column'],
+});
+
+const dallasFields: Fields = {
+  id: 'servnumid',
+  secondaryId: null,
+  date: 'date1',
+  time: 'time1',
+  category: 'nibrs_crime',
+  description: 'offincident',
+  location: 'incident_address',
+  area: 'division',
+  latitude: null,
+  longitude: null,
+  point: 'geocoded_column',
+};
+
+export function mapDallasRow(row: Record<string, unknown>, fields = dallasFields) {
+  return incidentFromSocrata(DALLAS_META, row, fields, {
+    idPrefix: 'dallas',
+    precisionLabel: 'Approximate public location',
+    combineTime: true,
+  });
+}
+
+export const dallasProvider = createAdaptiveSocrataProvider<FieldKey>({
+  meta: DALLAS_META,
+  aliases: dallasAliases,
+  requiredKeys: ['id', 'date', 'category'],
+  dateKey: 'date',
+  latitudeKey: 'latitude',
+  longitudeKey: 'longitude',
+  pointKey: 'point',
+  mapRow: mapDallasRow,
+});
+
 export const WASHINGTON_DC_LAYER_URL =
   'https://maps2.dcgis.dc.gov/dcgis/rest/services/FEEDS/MPD/FeatureServer/41';
 

@@ -181,6 +181,18 @@ export async function mockOfficialSources(page: Page, mode: 'success' | 'error' 
     'precinct',
     'neighborhood',
   ]);
+  await emptyAdaptiveSource(page, 'qv6i-rri7', [
+    'servnumid',
+    'incidentnum',
+    'date1',
+    'time1',
+    'nibrs_crime',
+    'nibrs_crime_category',
+    'offincident',
+    'incident_address',
+    'division',
+    'geocoded_column',
+  ]);
 
   await page.route('**/FEEDS/MPD/FeatureServer/41/query?*', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(dcFixture) }),

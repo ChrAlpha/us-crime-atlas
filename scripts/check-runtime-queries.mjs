@@ -40,6 +40,17 @@ const socrataSources = [
     },
     coordinateFieldsAreText: true,
   },
+  {
+    name: 'Dallas',
+    endpoint: 'https://www.dallasopendata.com/resource/qv6i-rri7.json',
+    bounds: { west: -97.04, south: 32.61, east: -96.52, north: 33.03 },
+    aliases: {
+      date: ['date1'],
+      latitude: [],
+      longitude: [],
+      point: ['geocoded_column'],
+    },
+  },
 ];
 
 const dcLayerUrl = 'https://maps2.dcgis.dc.gov/dcgis/rest/services/FEEDS/MPD/FeatureServer/41';
@@ -206,7 +217,7 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  console.log('\nAll six runtime-shaped provider queries passed.');
+  console.log('\nAll seven runtime-shaped provider queries passed.');
 }
 
 await main();

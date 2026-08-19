@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { mapChicagoRow } from './chicago';
 import { mapNewYorkRow } from './newYork';
-import { mapLosAngelesRow, mapSeattleRow, mapWashingtonDcFeature } from './nationwide';
+import { mapDallasRow, mapLosAngelesRow, mapSeattleRow, mapWashingtonDcFeature } from './nationwide';
 import { mapSanFranciscoRow } from './sanFrancisco';
 
 describe('official provider row adapters', () => {
@@ -119,6 +119,29 @@ describe('official provider row adapters', () => {
     });
   });
 
+  it('normalizes Dallas approximate public incident locations', () => {
+    const incident = mapDallasRow({
+      servnumid: '120551-2026-01',
+      date1: '2026-08-17 00:00:00.0000000',
+      time1: '01:10',
+      nibrs_crime: 'AGG ASSAULT - NFV',
+      nibrs_crime_category: 'ASSAULT OFFENSES',
+      offincident: 'ASSAULT (AGG) -OTHER',
+      incident_address: '5100 BLOCK PATONIA AVE',
+      division: 'SOUTH CENTRAL',
+      geocoded_column: { latitude: '32.68458', longitude: '-96.79187' },
+    });
+    expect(incident).toMatchObject({
+      id: 'dallas:120551-2026-01',
+      category: 'assault',
+      group: 'violent',
+      localHour: 1,
+      precision: 'approximate',
+      coordinates: [-96.79187, 32.68458],
+      locationLabel: '5100 BLOCK PATONIA AVE · SOUTH CENTRAL',
+    });
+  });
+
   it('normalizes Washington DC ArcGIS features and case-insensitive attributes', () => {
     const epoch = Date.parse('2026-08-10T23:00:00Z');
     const incident = mapWashingtonDcFeature({
@@ -151,6 +174,7 @@ describe('official provider row adapters', () => {
     expect(mapSanFranciscoRow({ row_id: 'x', incident_datetime: '2026-08-10T00:00:00', latitude: '37' })).toBeNull();
     expect(mapLosAngelesRow({ uniquenibrno: 'x', date_occ: '2026-08-10T00:00:00', hndrdth_lat: '0', hndrdth_lon: '0' })).toBeNull();
     expect(mapSeattleRow({ offense_id: 'x', offense_date: '2026-08-10T00:00:00', latitude: 'REDACTED', longitude: 'REDACTED' })).toBeNull();
+    expect(mapDallasRow({ servnumid: 'x', date1: '2026-08-10T00:00:00', geocoded_column: {} })).toBeNull();
     expect(mapWashingtonDcFeature({
       attributes: { OBJECTID: 1, START_DATE: 'bad' },
       geometry: { x: -77, y: 39 },
