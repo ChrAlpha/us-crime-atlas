@@ -53,7 +53,33 @@ const socrataSources = [
   },
 ];
 
-const dcLayerUrl = 'https://maps2.dcgis.dc.gov/dcgis/rest/services/FEEDS/MPD/FeatureServer/41';
+const arcgisSources = [
+  {
+    name: 'Washington DC',
+    layerUrl: 'https://maps2.dcgis.dc.gov/dcgis/rest/services/FEEDS/MPD/FeatureServer/41',
+    dateField: 'START_DATE', bounds: { west: -77.13, south: 38.79, east: -76.9, north: 39.0 },
+  },
+  {
+    name: 'Philadelphia',
+    layerUrl: 'https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/INCIDENTS_PART1_PART2/FeatureServer/0',
+    dateField: 'dispatch_date_time', bounds: { west: -75.29, south: 39.86, east: -74.95, north: 40.14 },
+  },
+  {
+    name: 'Detroit',
+    layerUrl: 'https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/RMS_Crime_Incidents_2026/FeatureServer/0',
+    dateField: 'incident_occurred_at', bounds: { west: -83.32, south: 42.25, east: -82.91, north: 42.46 },
+  },
+  {
+    name: 'Denver',
+    layerUrl: 'https://services1.arcgis.com/zdB7qR0BtYrg0Xpl/arcgis/rest/services/ODC_CRIME_OFFENSES_P/FeatureServer/324',
+    dateField: 'FIRST_OCCURRENCE_DATE', bounds: { west: -105.12, south: 39.61, east: -104.6, north: 39.91 },
+  },
+  {
+    name: 'Nashville',
+    layerUrl: 'https://services2.arcgis.com/HdTo6HJqh92wn4D8/arcgis/rest/services/Metro_Nashville_Police_Department_Incidents_view/FeatureServer/0',
+    dateField: 'Incident_Occurred', bounds: { west: -87.06, south: 35.96, east: -86.51, north: 36.4 },
+  },
+];
 
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -164,19 +190,19 @@ function sqlTimestamp(date) {
   return date.toISOString().slice(0, 19).replace('T', ' ');
 }
 
-async function checkDcRuntimeQuery() {
+async function checkArcgisRuntimeQuery(source) {
   const now = new Date();
   const start = new Date(now.getTime() - 180 * 86_400_000);
   const geometry = JSON.stringify({
-    xmin: -77.13,
-    ymin: 38.79,
-    xmax: -76.9,
-    ymax: 39.0,
+    xmin: source.bounds.west,
+    ymin: source.bounds.south,
+    xmax: source.bounds.east,
+    ymax: source.bounds.north,
     spatialReference: { wkid: 4326 },
   });
   const params = new URLSearchParams({
     f: 'json',
-    where: `START_DATE >= TIMESTAMP '${sqlTimestamp(start)}' AND START_DATE <= TIMESTAMP '${sqlTimestamp(now)}'`,
+    where: `${source.dateField} >= TIMESTAMP '${sqlTimestamp(start)}' AND ${source.dateField} <= TIMESTAMP '${sqlTimestamp(now)}'`,
     outFields: '*',
     returnGeometry: 'true',
     geometry,
@@ -184,16 +210,16 @@ async function checkDcRuntimeQuery() {
     inSR: '4326',
     outSR: '4326',
     spatialRel: 'esriSpatialRelIntersects',
-    orderByFields: 'START_DATE DESC',
+    orderByFields: `${source.dateField} DESC`,
     resultRecordCount: '1',
   });
-  const response = await fetchWithRetry(`${dcLayerUrl}/query?${params.toString()}`);
+  const response = await fetchWithRetry(`${source.layerUrl}/query?${params.toString()}`);
   const payload = await response.json();
-  if (payload.error) throw new Error(`Washington DC: ${payload.error.message ?? 'runtime ArcGIS query error'}`);
+  if (payload.error) throw new Error(`${source.name}: ${payload.error.message ?? 'runtime ArcGIS query error'}`);
   if (!Array.isArray(payload.features) || payload.features.length === 0) {
-    throw new Error('Washington DC: runtime-shaped 180-day city query returned no features');
+    throw new Error(`${source.name}: runtime-shaped 180-day city query returned no features`);
   }
-  console.log('✓ Washington DC runtime-shaped ArcGIS query');
+  console.log(`✓ ${source.name} runtime-shaped ArcGIS query`);
 }
 
 async function main() {
@@ -205,10 +231,12 @@ async function main() {
       failures.push(error instanceof Error ? error.message : String(error));
     }
   }
-  try {
-    await checkDcRuntimeQuery();
-  } catch (error) {
-    failures.push(error instanceof Error ? error.message : String(error));
+  for (const source of arcgisSources) {
+    try {
+      await checkArcgisRuntimeQuery(source);
+    } catch (error) {
+      failures.push(error instanceof Error ? error.message : String(error));
+    }
   }
 
   if (failures.length > 0) {
@@ -217,7 +245,7 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  console.log('\nAll seven runtime-shaped provider queries passed.');
+  console.log('\nAll eleven runtime-shaped provider queries passed.');
 }
 
 await main();

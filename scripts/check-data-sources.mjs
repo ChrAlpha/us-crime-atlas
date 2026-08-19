@@ -79,11 +79,38 @@ const socrataSources = [
   },
 ];
 
-const dcArcgisSource = {
-  name: 'Washington DC Crime Incidents - 2026',
-  layerUrl: 'https://maps2.dcgis.dc.gov/dcgis/rest/services/FEEDS/MPD/FeatureServer/41',
-  requiredFields: ['CCN', 'START_DATE', 'OFFENSE', 'LATITUDE', 'LONGITUDE', 'OBJECTID'],
-};
+const arcgisSources = [
+  {
+    name: 'Washington DC Crime Incidents - 2026',
+    layerUrl: 'https://maps2.dcgis.dc.gov/dcgis/rest/services/FEEDS/MPD/FeatureServer/41',
+    layerName: 'Crime Incidents - 2026', dateField: 'START_DATE',
+    requiredFields: ['CCN', 'START_DATE', 'OFFENSE', 'LATITUDE', 'LONGITUDE', 'OBJECTID'],
+  },
+  {
+    name: 'Philadelphia Crime Incidents',
+    layerUrl: 'https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/INCIDENTS_PART1_PART2/FeatureServer/0',
+    layerName: 'INCIDENTS_PART1_PART2', dateField: 'dispatch_date_time',
+    requiredFields: ['objectid', 'dc_key', 'dispatch_date_time', 'text_general_code', 'location_block'],
+  },
+  {
+    name: 'Detroit RMS Crime Incidents 2026',
+    layerUrl: 'https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/RMS_Crime_Incidents_2026/FeatureServer/0',
+    layerName: 'rms_crime_incidents', dateField: 'incident_occurred_at',
+    requiredFields: ['incident_entry_id', 'incident_occurred_at', 'offense_category', 'nearest_intersection'],
+  },
+  {
+    name: 'Denver Crime Offenses',
+    layerUrl: 'https://services1.arcgis.com/zdB7qR0BtYrg0Xpl/arcgis/rest/services/ODC_CRIME_OFFENSES_P/FeatureServer/324',
+    layerName: 'CRIME_OFFENSES_P', dateField: 'FIRST_OCCURRENCE_DATE',
+    requiredFields: ['OFFENSE_ID', 'FIRST_OCCURRENCE_DATE', 'OFFENSE_CATEGORY_ID', 'GEO_LON', 'GEO_LAT'],
+  },
+  {
+    name: 'Nashville Police Department Incidents',
+    layerUrl: 'https://services2.arcgis.com/HdTo6HJqh92wn4D8/arcgis/rest/services/Metro_Nashville_Police_Department_Incidents_view/FeatureServer/0',
+    layerName: 'Metro_Nashville_Police_Department_Incidents', dateField: 'Incident_Occurred',
+    requiredFields: ['Primary_Key', 'Incident_Occurred', 'Offense_Description', 'Latitude', 'Longitude'],
+  },
+];
 
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -201,47 +228,47 @@ function attributeName(available, expected) {
   return available.find((field) => field.toLowerCase() === expected.toLowerCase()) ?? null;
 }
 
-async function checkDcArcgisSource() {
-  const metadataResponse = await fetchWithRetry(`${dcArcgisSource.layerUrl}?f=json`, {
+async function checkArcgisSource(source) {
+  const metadataResponse = await fetchWithRetry(`${source.layerUrl}?f=json`, {
     headers: { Accept: 'application/json' },
   });
   const metadata = await metadataResponse.json();
-  if (metadata.error) throw new Error(`${dcArcgisSource.name}: ${metadata.error.message ?? 'layer metadata error'}`);
-  if (metadata.name !== 'Crime Incidents - 2026') {
-    throw new Error(`${dcArcgisSource.name}: layer 41 now identifies as ${metadata.name ?? 'an unnamed layer'}`);
+  if (metadata.error) throw new Error(`${source.name}: ${metadata.error.message ?? 'layer metadata error'}`);
+  if (metadata.name !== source.layerName) {
+    throw new Error(`${source.name}: layer now identifies as ${metadata.name ?? 'an unnamed layer'}`);
   }
   const available = (metadata.fields ?? []).map((field) => field.name).filter(Boolean);
-  const missing = dcArcgisSource.requiredFields.filter((field) => !attributeName(available, field));
-  if (missing.length > 0) throw new Error(`${dcArcgisSource.name}: layer is missing ${missing.join(', ')}`);
+  const missing = source.requiredFields.filter((field) => !attributeName(available, field));
+  if (missing.length > 0) throw new Error(`${source.name}: layer is missing ${missing.join(', ')}`);
 
   const params = new URLSearchParams({
     f: 'json',
-    where: 'START_DATE IS NOT NULL',
+    where: `${source.dateField} IS NOT NULL`,
     outFields: '*',
     returnGeometry: 'true',
     outSR: '4326',
-    orderByFields: 'START_DATE DESC',
+    orderByFields: `${source.dateField} DESC`,
     resultRecordCount: '1',
   });
-  const response = await fetchWithRetry(`${dcArcgisSource.layerUrl}/query?${params.toString()}`, {
+  const response = await fetchWithRetry(`${source.layerUrl}/query?${params.toString()}`, {
     headers: { Accept: 'application/json' },
   });
   const payload = await response.json();
-  if (payload.error) throw new Error(`${dcArcgisSource.name}: ${payload.error.message ?? 'query error'}`);
+  if (payload.error) throw new Error(`${source.name}: ${payload.error.message ?? 'query error'}`);
   if (!Array.isArray(payload.features) || payload.features.length === 0) {
-    throw new Error(`${dcArcgisSource.name}: expected at least one feature`);
+    throw new Error(`${source.name}: expected at least one feature`);
   }
   const feature = payload.features[0];
   const attributes = feature.attributes ?? {};
-  const longitudeField = attributeName(Object.keys(attributes), 'LONGITUDE');
-  const latitudeField = attributeName(Object.keys(attributes), 'LATITUDE');
+  const longitudeField = ['LONGITUDE', 'GEO_LON', 'point_x'].map((field) => attributeName(Object.keys(attributes), field)).find(Boolean);
+  const latitudeField = ['LATITUDE', 'GEO_LAT', 'point_y'].map((field) => attributeName(Object.keys(attributes), field)).find(Boolean);
   const coordinates = finiteCoordinates(
     longitudeField ? attributes[longitudeField] : feature.geometry?.x,
     latitudeField ? attributes[latitudeField] : feature.geometry?.y,
   );
-  if (!coordinates) throw new Error(`${dcArcgisSource.name}: latest feature has no usable WGS84 location`);
-  console.log(`✓ ${dcArcgisSource.name}`);
-  console.log(`  layer: ${dcArcgisSource.layerUrl}`);
+  if (!coordinates) throw new Error(`${source.name}: latest feature has no usable WGS84 location`);
+  console.log(`✓ ${source.name}`);
+  console.log(`  layer: ${source.layerUrl}`);
 }
 
 async function checkMapStyle() {
@@ -263,10 +290,12 @@ async function main() {
       failures.push(error instanceof Error ? error.message : String(error));
     }
   }
-  try {
-    await checkDcArcgisSource();
-  } catch (error) {
-    failures.push(error instanceof Error ? error.message : String(error));
+  for (const source of arcgisSources) {
+    try {
+      await checkArcgisSource(source);
+    } catch (error) {
+      failures.push(error instanceof Error ? error.message : String(error));
+    }
   }
   try {
     await checkMapStyle();
@@ -280,7 +309,7 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  console.log(`\nAll ${socrataSources.length + 1} live city source contracts passed.`);
+  console.log(`\nAll ${socrataSources.length + arcgisSources.length} live city source contracts passed.`);
 }
 
 await main();
