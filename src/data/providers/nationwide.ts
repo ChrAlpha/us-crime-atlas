@@ -260,7 +260,7 @@ export const DALLAS_META: ProviderMeta = {
   cadence: 'Updated daily',
   delayNote: 'Published records are preliminary and can change as investigations and classifications progress.',
   precision: 'approximate',
-  precisionNote: 'The public geocoded location is approximate and must not be treated as a specific premises.',
+  precisionNote: 'Published coordinates are rounded to an approximately one-hundred-meter grid and addresses to a hundred block.',
   coverageNote: 'Dallas Police RMS incidents from June 2014 onward; one service report can contain multiple offense rows.',
   lastVerified: '2026-08-19',
 };
@@ -291,12 +291,27 @@ const dallasFields: Fields = {
   point: 'geocoded_column',
 };
 
+function generalizedDallasAddress(value: string) {
+  return value.replace(/^(\d+)\s+/, (match, houseNumber: string) => {
+    const number = Number(houseNumber);
+    if (!Number.isFinite(number)) return match;
+    return `${Math.floor(number / 100) * 100} BLOCK `;
+  });
+}
+
 export function mapDallasRow(row: Record<string, unknown>, fields = dallasFields) {
-  return incidentFromSocrata(DALLAS_META, row, fields, {
+  const incident = incidentFromSocrata(DALLAS_META, row, fields, {
     idPrefix: 'dallas',
     precisionLabel: 'Approximate public location',
     combineTime: true,
   });
+  if (!incident) return null;
+  const [longitude, latitude] = incident.coordinates;
+  return {
+    ...incident,
+    coordinates: [Number(longitude.toFixed(3)), Number(latitude.toFixed(3))] as const,
+    locationLabel: generalizedDallasAddress(incident.locationLabel),
+  };
 }
 
 export const dallasProvider = createAdaptiveSocrataProvider<FieldKey>({

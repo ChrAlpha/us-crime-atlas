@@ -127,7 +127,7 @@ describe('official provider row adapters', () => {
       nibrs_crime: 'AGG ASSAULT - NFV',
       nibrs_crime_category: 'ASSAULT OFFENSES',
       offincident: 'ASSAULT (AGG) -OTHER',
-      incident_address: '5100 BLOCK PATONIA AVE',
+      incident_address: '5130 PATONIA AVE',
       division: 'SOUTH CENTRAL',
       geocoded_column: { latitude: '32.68458', longitude: '-96.79187' },
     });
@@ -137,7 +137,7 @@ describe('official provider row adapters', () => {
       group: 'violent',
       localHour: 1,
       precision: 'approximate',
-      coordinates: [-96.79187, 32.68458],
+      coordinates: [-96.792, 32.685],
       locationLabel: '5100 BLOCK PATONIA AVE · SOUTH CENTRAL',
     });
   });

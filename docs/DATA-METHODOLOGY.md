@@ -56,7 +56,7 @@ The alias mechanism handles publisher field renames that retain an explicitly re
 
 Seattle publishes latitude and longitude as text and uses privacy placeholders such as `REDACTED` and `-`. Because the registered Seattle bounds remain inside fixed latitude and longitude degree bands, its query excludes those placeholders and applies sign-aware textual bounds. Coordinates are then parsed numerically and exact Haversine filtering remains authoritative. Rows with nonnumeric, sentinel, zero, or out-of-range coordinates are rejected after retrieval.
 
-Dallas uses the official public geocoded point attached to each RMS offense row. The location is treated as approximate, regardless of whether the record also exposes a street address, and the interface does not present it as a specific premises.
+Dallas uses the official public geocoded point attached to each RMS offense row, then rounds it to an approximately one-hundred-meter grid and generalizes a leading house number to its hundred block. The interface therefore does not present the source row as a specific premises.
 
 ### ArcGIS Feature Service
 
