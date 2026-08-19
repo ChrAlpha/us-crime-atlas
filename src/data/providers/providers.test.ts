@@ -6,11 +6,28 @@ import {
   mapPhiladelphiaFeature,
 } from './arcgisCities';
 import { mapChicagoRow } from './chicago';
+import { findProviderForPoint, providerMetadata } from './index';
 import { mapNewYorkRow } from './newYork';
 import { mapDallasRow, mapLosAngelesRow, mapSeattleRow, mapWashingtonDcFeature } from './nationwide';
 import { mapSanFranciscoRow } from './sanFrancisco';
 
 describe('official provider row adapters', () => {
+  it('keeps eleven provider identities and coverage centers disjoint', () => {
+    expect(providerMetadata).toHaveLength(11);
+    expect(new Set(providerMetadata.map((provider) => provider.id)).size).toBe(11);
+    for (const provider of providerMetadata) {
+      expect(findProviderForPoint(provider.center)?.meta.id).toBe(provider.id);
+      const overlapping = providerMetadata.filter((candidate) => (
+        candidate.id !== provider.id
+        && provider.center[0] >= candidate.bounds.west
+        && provider.center[0] <= candidate.bounds.east
+        && provider.center[1] >= candidate.bounds.south
+        && provider.center[1] <= candidate.bounds.north
+      ));
+      expect(overlapping, `${provider.label} center overlaps another provider`).toEqual([]);
+    }
+  });
+
   it('normalizes Chicago battery records', () => {
     const incident = mapChicagoRow({
       id: '123',

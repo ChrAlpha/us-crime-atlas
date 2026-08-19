@@ -194,6 +194,17 @@ export async function mockOfficialSources(page: Page, mode: 'success' | 'error' 
     'geocoded_column',
   ]);
 
+  for (const path of [
+    'INCIDENTS_PART1_PART2/FeatureServer/0',
+    'RMS_Crime_Incidents_2026/FeatureServer/0',
+    'ODC_CRIME_OFFENSES_P/FeatureServer/324',
+    'Metro_Nashville_Police_Department_Incidents_view/FeatureServer/0',
+  ]) {
+    await page.route(`**/${path}/query?*`, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '{"features":[]}' }),
+    );
+  }
+
   await page.route('**/FEEDS/MPD/FeatureServer/41/query?*', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(dcFixture) }),
   );

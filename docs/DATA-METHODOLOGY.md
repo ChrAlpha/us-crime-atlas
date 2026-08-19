@@ -14,8 +14,12 @@ The application uses incident-level publications from local law-enforcement agen
 
 - New York City Police Department Complaint Data Current (YTD), Socrata dataset `5uac-w243`.
 - Metropolitan Police Department of the District of Columbia Crime Incidents - 2026, official ArcGIS Feature Layer `FEEDS/MPD/FeatureServer/41`.
+- Philadelphia Police Department Crime Incidents 2006 to Present, official ArcGIS Feature Layer `INCIDENTS_PART1_PART2/FeatureServer/0`.
 - Chicago Police Department Crimes — 2001 to Present, Socrata dataset `ijzp-q8t2`.
+- Detroit Police Department RMS Crime Incidents 2026, official ArcGIS Feature Layer `RMS_Crime_Incidents_2026/FeatureServer/0`.
+- Metropolitan Nashville Police Department Incidents, official ArcGIS Feature Layer `Metro_Nashville_Police_Department_Incidents_view/FeatureServer/0`.
 - Dallas Police Department Police Incidents, Socrata dataset `qv6i-rri7`.
+- Denver Police Department Crime Offenses, official ArcGIS Feature Layer `ODC_CRIME_OFFENSES_P/FeatureServer/324`.
 - Los Angeles Police Department NIBRS Offenses Dataset 2026 to Present, Socrata dataset `k7nn-b2ep`.
 - San Francisco Police Department Incident Reports — 2018 to Present, Socrata dataset `wg3w-h783`.
 - Seattle Police Department Crime Data: 2008–Present, Socrata dataset `tazs-3rd5`.
@@ -60,7 +64,7 @@ Dallas uses the official public geocoded point attached to each RMS offense row,
 
 ### ArcGIS Feature Service
 
-Washington, DC uses the reviewed official `Crime Incidents - 2026` layer directly rather than searching a public catalog by title. The provider queries the layer using:
+Washington, DC, Philadelphia, Detroit, Denver, and Nashville use reviewed official layers directly rather than selecting similarly titled public items heuristically. Each provider queries its layer using:
 
 - a SQL timestamp occurrence-date predicate;
 - an `esriGeometryEnvelope` around the analysis request;
@@ -68,7 +72,7 @@ Washington, DC uses the reviewed official `Crime Incidents - 2026` layer directl
 - publisher attributes plus returned feature geometry;
 - a fixed result limit and explicit `exceededTransferLimit` handling.
 
-The health contract verifies that layer 41 still identifies itself as `Crime Incidents - 2026` and exposes the required identity, date, category, and coordinate fields. A future annual layer rollover must be reviewed explicitly rather than guessed.
+The health contract verifies every registered layer name and its required identity, date, category, and coordinate fields. Annual layer rollovers for Washington, DC and Detroit must be reviewed explicitly rather than guessed. Philadelphia publishes hundred-block locations, Detroit publishes nearest intersections, while Denver and Nashville coordinates are treated as approximate and rounded where needed.
 
 ## Query geometry
 
@@ -168,7 +172,7 @@ Map popovers and source notes state the precision. The UI must not imply that a 
 
 ## Live contracts and health monitoring
 
-`npm run test:data` checks all seven sources and the base-map style. Socrata checks resolve reviewed metadata aliases and inspect recent rows for usable numeric geometry. The Washington, DC check verifies the reviewed layer identity, required fields, and one WGS84 feature.
+`npm run test:data` checks all eleven sources and the base-map style. Socrata checks resolve reviewed metadata aliases and inspect recent rows for usable numeric geometry. ArcGIS checks verify each reviewed layer identity, required fields, and one WGS84 feature.
 
 `npm run test:runtime` executes a 180-day date-and-space query shaped like the product request against every registered provider. This catches failures that metadata-only checks miss, including invalid date syntax, text-coordinate conversion, envelope semantics, and an endpoint that returns no recent records.
 

@@ -10,15 +10,19 @@ The atlas deliberately avoids an opaque “safety score.” It shows observed in
 | --- | --- | --- | --- |
 | New York City | NYPD | Socrata | Block midpoint |
 | Washington, DC | Metropolitan Police Department | ArcGIS Feature Service | Generalized block |
+| Philadelphia | Philadelphia Police Department | ArcGIS Feature Service | Hundred block |
 | Chicago | Chicago Police Department | Socrata | Shifted block location |
+| Detroit | Detroit Police Department | ArcGIS Feature Service | Nearest intersection |
+| Nashville | Metropolitan Nashville Police Department | ArcGIS Feature Service | Approximate public location |
 | Dallas | Dallas Police Department | Socrata | Approximate public location |
+| Denver | Denver Police Department | ArcGIS Feature Service | Approximate hundred-meter grid |
 | Los Angeles | Los Angeles Police Department | Socrata | Approximate block |
 | San Francisco | San Francisco Police Department | Socrata | Nearby intersection |
 | Seattle | Seattle Police Department | Socrata | Approximate one-hundred block |
 
 The map and place search work throughout the United States. Incident analysis is enabled only where a verified provider adapter exists, so unsupported areas never silently receive fabricated events, a citywide average, or a national proxy.
 
-This coverage wave adds Dallas, Los Angeles, Seattle, and Washington, DC to the original New York City, Chicago, and San Francisco providers. It accepts clearly disclosed lower-precision official locations when exact public points are unavailable, but still excludes feeds without usable incident-level geometry or a live reviewed endpoint.
+The current expansion waves add Dallas, Denver, Detroit, Los Angeles, Nashville, Philadelphia, Seattle, and Washington, DC to the original New York City, Chicago, and San Francisco providers. They accept clearly disclosed lower-precision official locations when exact public points are unavailable, but still exclude feeds without usable recent incident-level geometry or a live reviewed endpoint.
 
 ## Product behavior
 
@@ -65,7 +69,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-`test:data` validates live source metadata, required fields, usable sample geometry, and the OpenFreeMap style. `test:runtime` executes the same 180-day date and spatial query shape used by the product against all seven registered city sources. Playwright mocks source responses so browser acceptance remains deterministic while the live jobs detect upstream drift.
+`test:data` validates live source metadata, required fields, usable sample geometry, and the OpenFreeMap style. `test:runtime` executes the same 180-day date and spatial query shape used by the product against all eleven registered city sources. Playwright mocks source responses so browser acceptance remains deterministic while the live jobs detect upstream drift.
 
 ## Architecture
 
@@ -84,7 +88,7 @@ Official Socrata metadata + rows       Official ArcGIS feature layer
                 └── responsive evidence inspector
 ```
 
-Stable Socrata providers use explicit schemas. Expansion providers resolve only reviewed aliases from live dataset metadata. Seattle’s published coordinates are text fields, so its bounded query excludes privacy placeholders and applies fixed-degree textual bounds before numeric parsing and exact Haversine filtering. Washington, DC uses the official 2026 MPD Feature Layer directly rather than selecting a similarly titled ArcGIS item heuristically.
+Stable Socrata providers use explicit schemas. Expansion providers resolve only reviewed aliases from live dataset metadata. Seattle’s published coordinates are text fields, so its bounded query excludes privacy placeholders and applies fixed-degree textual bounds before numeric parsing and exact Haversine filtering. ArcGIS providers bind reviewed official feature layers directly and verify each layer name and required field contract.
 
 A new provider must declare its publisher, machine-readable endpoint, row identity, occurrence-time semantics, geographic bounds, update cadence, known lag, and public spatial transformation. It joins the registry only after mapper tests, live metadata checks, a runtime-shaped spatial query, and responsive browser acceptance pass.
 
@@ -96,7 +100,7 @@ The CI workflow requires:
 2. unit coverage thresholds for geospatial, normalization, URL-state, analysis, Socrata, ArcGIS, and city mapper contracts;
 3. a production Vite build;
 4. live official-source and MapLibre-style contracts;
-5. live runtime-shaped date and spatial queries for all seven cities;
+5. live runtime-shaped date and spatial queries for all eleven cities;
 6. Chromium acceptance at desktop and iPhone-class viewports;
 7. an explicit browser path through an ArcGIS-backed provider;
 8. horizontal-overflow checks and a serious/critical axe accessibility audit;
