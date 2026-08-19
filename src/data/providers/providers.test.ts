@@ -1,4 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import {
+  mapDenverFeature,
+  mapDetroitFeature,
+  mapNashvilleFeature,
+  mapPhiladelphiaFeature,
+} from './arcgisCities';
 import { mapChicagoRow } from './chicago';
 import { mapNewYorkRow } from './newYork';
 import { mapDallasRow, mapLosAngelesRow, mapSeattleRow, mapWashingtonDcFeature } from './nationwide';
@@ -167,6 +173,72 @@ describe('official provider row adapters', () => {
     });
   });
 
+  it('normalizes four additional official ArcGIS city feeds', () => {
+    const philadelphia = mapPhiladelphiaFeature({
+      attributes: {
+        dc_key: 202615076473,
+        dispatch_date_time: Date.parse('2026-08-17T23:57:00Z'),
+        text_general_code: 'Thefts',
+        location_block: '6900 BLOCK TORRESDALE AVE',
+        dc_dist: '15',
+        point_x: -75.04326165,
+        point_y: 40.02620047,
+      },
+    });
+    const detroit = mapDetroitFeature({
+      attributes: {
+        incident_entry_id: '1476186-1302',
+        incident_occurred_at: Date.parse('2026-08-17T03:00:00Z'),
+        offense_category: 'AGGRAVATED ASSAULT',
+        offense_description: 'FELONIOUS ASSAULT',
+        nearest_intersection: 'Pilgrim St & Turner St',
+        neighborhood: 'Fitzgerald/Marygrove',
+        longitude: -83.1485522,
+        latitude: 42.4074899,
+      },
+    });
+    const denver = mapDenverFeature({
+      attributes: {
+        OFFENSE_ID: 'DP2026455622531200',
+        FIRST_OCCURRENCE_DATE: Date.parse('2026-08-16T21:48:00Z'),
+        OFFENSE_CATEGORY_ID: 'public-disorder',
+        OFFENSE_TYPE_ID: 'disturbing-the-peace',
+        NEIGHBORHOOD_ID: 'five-points',
+        DISTRICT_ID: '6',
+        GEO_LON: -104.99072735,
+        GEO_LAT: 39.75419794,
+      },
+    });
+    const nashville = mapNashvilleFeature({
+      attributes: {
+        Primary_Key: '20260498489_11',
+        Incident_Occurred: Date.parse('2026-08-17T23:00:00Z'),
+        Offense_Description: 'THEFT OF PROPERTY-$1,000 OR LESS',
+        Weapon_Description: 'NONE',
+        Incident_Location: 'OLD HICKORY BLVD',
+        Location_Description: 'APARTMENT',
+        Longitude: -86.6004,
+        Latitude: 36.1804,
+      },
+    });
+
+    expect(philadelphia).toMatchObject({
+      id: 'philadelphia:202615076473', category: 'theft', precision: 'block',
+      coordinates: [-75.04326165, 40.02620047],
+    });
+    expect(detroit).toMatchObject({
+      id: 'detroit:1476186-1302', category: 'assault', precision: 'intersection',
+      locationLabel: 'Pilgrim St & Turner St · Fitzgerald/Marygrove',
+    });
+    expect(denver).toMatchObject({
+      id: 'denver:DP2026455622531200', precision: 'approximate', coordinates: [-104.991, 39.754],
+    });
+    expect(nashville).toMatchObject({
+      id: 'nashville:20260498489_11', category: 'theft', precision: 'approximate',
+      coordinates: [-86.6, 36.18],
+    });
+  });
+
   it('drops rows without usable identifiers, dates, or coordinates', () => {
     expect(mapChicagoRow({ id: 'x', date: '2026-08-10T00:00:00', latitude: 'bad', longitude: '-87' })).toBeNull();
     expect(mapChicagoRow({ date: '2026-08-10T00:00:00', latitude: '41', longitude: '-87' })).toBeNull();
@@ -175,6 +247,7 @@ describe('official provider row adapters', () => {
     expect(mapLosAngelesRow({ uniquenibrno: 'x', date_occ: '2026-08-10T00:00:00', hndrdth_lat: '0', hndrdth_lon: '0' })).toBeNull();
     expect(mapSeattleRow({ offense_id: 'x', offense_date: '2026-08-10T00:00:00', latitude: 'REDACTED', longitude: 'REDACTED' })).toBeNull();
     expect(mapDallasRow({ servnumid: 'x', date1: '2026-08-10T00:00:00', geocoded_column: {} })).toBeNull();
+    expect(mapPhiladelphiaFeature({ attributes: { dc_key: 1, dispatch_date_time: Date.now() } })).toBeNull();
     expect(mapWashingtonDcFeature({
       attributes: { OBJECTID: 1, START_DATE: 'bad' },
       geometry: { x: -77, y: 39 },
