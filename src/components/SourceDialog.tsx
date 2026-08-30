@@ -30,6 +30,15 @@ const limitations = [
   'A short quiet window does not guarantee safety, while a high historical count does not establish the probability of harm to an individual traveler.',
 ];
 
+const focusableSelector = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
+
 function ProviderCard({ provider, active = false }: { provider: ProviderMeta; active?: boolean }) {
   return (
     <article className={active ? 'is-active' : undefined}>
@@ -69,16 +78,42 @@ function ProviderCard({ provider, active = false }: { provider: ProviderMeta; ac
 
 export function SourceDialog({ open, activeProvider, onClose }: SourceDialogProps) {
   const closeRef = useRef<HTMLButtonElement | null>(null);
+  const dialogRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = dialogRef.current;
     const handleKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (event.key !== 'Tab' || !dialog) return;
+      const focusable = [...dialog.querySelectorAll<HTMLElement>(focusableSelector)]
+        .filter((element) => element.getClientRects().length > 0);
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (!first || !last) return;
+      if (!dialog.contains(document.activeElement)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+        return;
+      }
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
+    document.documentElement.classList.add('has-open-dialog');
     document.addEventListener('keydown', handleKey);
-    window.setTimeout(() => closeRef.current?.focus(), 0);
+    const focusTimer = window.setTimeout(() => closeRef.current?.focus(), 0);
     return () => {
+      window.clearTimeout(focusTimer);
+      document.documentElement.classList.remove('has-open-dialog');
       document.removeEventListener('keydown', handleKey);
       previous?.focus();
     };
@@ -96,6 +131,7 @@ export function SourceDialog({ open, activeProvider, onClose }: SourceDialogProp
   return (
     <div className="dialog-backdrop" onMouseDown={dismissBackdrop}>
       <section
+        ref={dialogRef}
         aria-describedby="source-dialog-description"
         aria-labelledby="source-dialog-title"
         aria-modal="true"

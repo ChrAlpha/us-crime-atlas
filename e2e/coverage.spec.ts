@@ -67,4 +67,25 @@ test('keeps eleven-city navigation and source disclosure usable', async ({ page 
     path: `test-results/${testInfo.project.name}-sources.png`,
     fullPage: true,
   });
+
+  const closeButton = page.getByRole('button', { name: 'Close sources and methodology' });
+  await expect(closeButton).toBeFocused();
+  await expect(page.locator('html')).toHaveClass(/has-open-dialog/);
+  await page.keyboard.press('Shift+Tab');
+  await expect(dialog.locator(':focus')).toHaveCount(1);
+  await page.keyboard.press('Tab');
+  await expect(closeButton).toBeFocused();
+  await page.locator('#place-query').focus();
+  await page.keyboard.press('Tab');
+  await expect(closeButton).toBeFocused();
+  await closeButton.click();
+  await expect(dialog).toBeHidden();
+  await expect(page.locator('html')).not.toHaveClass(/has-open-dialog/);
+  const sourceButton = page.getByRole('button', { name: 'Sources & methodology' });
+  await expect(sourceButton).toBeFocused();
+  await sourceButton.click();
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(sourceButton).toBeFocused();
 });
