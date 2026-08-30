@@ -232,6 +232,7 @@
 .provider-strip__copy {
   min-width: 0;
   display: grid;
+  flex: 1 1 auto;
   gap: 3px;
 }
 
@@ -247,8 +248,12 @@
 }
 
 .provider-strip strong {
+  display: -webkit-box;
+  overflow: hidden;
   font-size: 10px;
   line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .provider-strip small {

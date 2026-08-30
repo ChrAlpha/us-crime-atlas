@@ -339,10 +339,11 @@ export function EvidencePanel({
       </div>
     );
   }
+  const compact = !provider || status === 'error';
 
   return (
     <aside
-      className="evidence-panel glass-panel"
+      className={`evidence-panel glass-panel${compact ? ' evidence-panel--compact' : ''}`}
       data-testid="evidence-panel"
       aria-label="Observed incident evidence"
     >

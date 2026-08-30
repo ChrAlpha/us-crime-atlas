@@ -1,4 +1,7 @@
 import type { StyleSpecification } from 'maplibre-gl';
+import type { Coordinates } from '../types';
+
+const offlineCenter: Coordinates = [-73.9855, 40.758];
 
 const streetLongitudes = Array.from({ length: 15 }, (_, index) => -74.035 + index * 0.007);
 const streetLatitudes = Array.from({ length: 15 }, (_, index) => 40.725 + index * 0.0048);
@@ -65,7 +68,36 @@ const areaFeatures: GeoJSON.Feature<GeoJSON.Polygon>[] = [
   },
 ];
 
-export function offlineStyle(theme: 'light' | 'dark'): StyleSpecification {
+function shiftPosition(position: GeoJSON.Position, center: Coordinates): GeoJSON.Position {
+  return [
+    position[0]! + center[0] - offlineCenter[0],
+    position[1]! + center[1] - offlineCenter[1],
+  ];
+}
+
+function shiftedStreetFeatures(center: Coordinates): GeoJSON.Feature<GeoJSON.LineString>[] {
+  return streetFeatures.map((feature) => ({
+    ...feature,
+    geometry: {
+      ...feature.geometry,
+      coordinates: feature.geometry.coordinates.map((position) => shiftPosition(position, center)),
+    },
+  }));
+}
+
+function shiftedAreaFeatures(center: Coordinates): GeoJSON.Feature<GeoJSON.Polygon>[] {
+  return areaFeatures.map((feature) => ({
+    ...feature,
+    geometry: {
+      ...feature.geometry,
+      coordinates: feature.geometry.coordinates.map((ring) => (
+        ring.map((position) => shiftPosition(position, center))
+      )),
+    },
+  }));
+}
+
+export function offlineStyle(theme: 'light' | 'dark', center: Coordinates): StyleSpecification {
   const dark = theme === 'dark';
   return {
     version: 8,
@@ -73,11 +105,11 @@ export function offlineStyle(theme: 'light' | 'dark'): StyleSpecification {
     sources: {
       'offline-areas': {
         type: 'geojson',
-        data: { type: 'FeatureCollection', features: areaFeatures },
+        data: { type: 'FeatureCollection', features: shiftedAreaFeatures(center) },
       },
       'offline-streets': {
         type: 'geojson',
-        data: { type: 'FeatureCollection', features: streetFeatures },
+        data: { type: 'FeatureCollection', features: shiftedStreetFeatures(center) },
       },
     },
     layers: [

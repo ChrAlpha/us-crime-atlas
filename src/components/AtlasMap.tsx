@@ -42,9 +42,9 @@ const emptyFeatureCollection = (): GeoJSON.FeatureCollection => ({
   features: [],
 });
 
-function mapStyle(theme: AtlasMapProps['theme']): string | StyleSpecification {
+function mapStyle(theme: AtlasMapProps['theme'], center: Coordinates): string | StyleSpecification {
   const params = new URLSearchParams(window.location.search);
-  if (params.get('e2e') === '1') return offlineStyle(theme);
+  if (params.get('e2e') === '1') return offlineStyle(theme, center);
   return theme === 'dark'
     ? 'https://tiles.openfreemap.org/styles/dark'
     : 'https://tiles.openfreemap.org/styles/positron';
@@ -260,7 +260,7 @@ export function AtlasMap({
     let ready = false;
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: mapStyle(theme),
+      style: mapStyle(theme, center),
       center: [center[0], center[1]],
       zoom: 12.4,
       minZoom: 3,

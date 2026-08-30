@@ -27,6 +27,27 @@
   --border-strong: oklch(0.9 0.008 95 / 0.23);
 }
 
+.brand-status.is-error .live-dot,
+.provider-strip.has-error .provider-dot {
+  background: var(--red);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--red) 14%, transparent);
+}
+
+.brand-status.is-loading .live-dot {
+  background: var(--amber);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--amber) 14%, transparent);
+}
+
+.brand-status.is-neutral .live-dot {
+  background: var(--ink-tertiary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink-tertiary) 12%, transparent);
+}
+
+.provider-strip.has-error {
+  border-color: color-mix(in srgb, var(--red) 36%, var(--border));
+  background: color-mix(in srgb, var(--red) 6%, var(--surface-muted));
+}
+
 .skip-link {
   position: fixed;
   z-index: 200;
@@ -78,6 +99,11 @@
   right: 12px;
   width: 432px;
   padding: 20px;
+}
+
+.evidence-panel--compact {
+  bottom: auto;
+  max-height: calc(100dvh - 96px);
 }
 
 .maplibregl-ctrl-top-right {
@@ -275,6 +301,23 @@
   min-height: 42px;
 }
 
+.state-card {
+  padding: 18px;
+}
+
+.state-card strong {
+  font-size: 14px;
+}
+
+.state-card p {
+  font-size: 11px;
+}
+
+.state-card button {
+  min-height: 40px;
+  font-size: 11px;
+}
+
 @media (max-width: 1180px) and (min-width: 1001px) {
   .search-panel {
     width: 286px;
@@ -403,6 +446,10 @@
 
   .segmented-control button,
   .filter-chips button {
+    min-height: 44px;
+  }
+
+  .state-card button {
     min-height: 44px;
   }
 

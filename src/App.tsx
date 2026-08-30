@@ -44,6 +44,20 @@ export default function App() {
     windowDays: atlasState.windowDays,
     activeGroups: atlasState.activeGroups,
   });
+  const sourceTone = !provider
+    ? 'neutral'
+    : incidentState.status === 'error'
+      ? 'error'
+      : incidentState.status === 'loading'
+        ? 'loading'
+        : 'ready';
+  const sourceStatus = sourceTone === 'neutral'
+    ? 'Map only'
+    : sourceTone === 'error'
+      ? 'Source unavailable'
+      : sourceTone === 'loading'
+        ? 'Checking official feed'
+        : 'Official local feed';
 
   const selectedIncident = useMemo(() => {
     if (!selectedIncidentId || !incidentState.analysis) return null;
@@ -149,9 +163,9 @@ export default function App() {
             <small>Evidence for travel decisions</small>
           </span>
         </div>
-        <div className="brand-status">
+        <div className={`brand-status is-${sourceTone}`}>
           <span className="live-dot" aria-hidden="true" />
-          Official local feeds
+          {sourceStatus}
         </div>
         <div className="brand-actions">
           <button
@@ -186,6 +200,7 @@ export default function App() {
         onWindowChange={setWindow}
         place={atlasState.place}
         provider={provider}
+        providerStatus={incidentState.status}
         radiusMeters={atlasState.radiusMeters}
         windowDays={atlasState.windowDays}
       />

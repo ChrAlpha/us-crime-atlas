@@ -14,6 +14,7 @@ import {
 interface SearchPanelProps {
   place: SelectedPlace;
   provider: IncidentProvider | null;
+  providerStatus: 'idle' | 'loading' | 'ready' | 'error';
   radiusMeters: number;
   windowDays: number;
   activeGroups: CrimeGroup[];
@@ -42,6 +43,7 @@ function radiusLabel(radius: number) {
 export function SearchPanel({
   place,
   provider,
+  providerStatus,
   radiusMeters,
   windowDays,
   activeGroups,
@@ -56,6 +58,7 @@ export function SearchPanel({
   const [query, setQuery] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const search = usePlaceSearch();
+  const providerUnavailable = Boolean(provider && providerStatus === 'error');
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -140,15 +143,23 @@ export function SearchPanel({
 
       <button
         aria-label="Sources & methodology"
-        className={`provider-strip${provider ? '' : ' is-unsupported'}`}
+        className={`provider-strip${provider ? '' : ' is-unsupported'}${providerUnavailable ? ' has-error' : ''}`}
         onClick={onOpenSources}
         type="button"
       >
         <span className="provider-dot" aria-hidden="true" />
         <span className="provider-strip__copy">
-          <strong>{provider ? provider.meta.agency : 'No verified incident feed here yet'}</strong>
+          <strong>
+            {providerUnavailable
+              ? `${provider?.meta.agency} is temporarily unavailable`
+              : provider
+                ? provider.meta.agency
+                : 'No verified incident feed here yet'}
+          </strong>
           <small>
-            {provider
+            {providerUnavailable
+              ? 'The publisher did not respond. Retry from the evidence panel.'
+              : provider
               ? `${provider.meta.cadence}. ${provider.meta.precisionNote}`
               : 'The map remains usable, but the atlas will not substitute proxy or synthetic crime data.'}
           </small>
