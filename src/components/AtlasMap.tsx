@@ -9,6 +9,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { boundingBoxForRadius, circlePolygon, haversineDistance } from '../domain/geo';
 import type { Coordinates, Incident } from '../types';
+import { offlineStyle } from './offlineMapStyle';
 
 interface AtlasMapProps {
   center: Coordinates;
@@ -40,23 +41,6 @@ const emptyFeatureCollection = (): GeoJSON.FeatureCollection => ({
   type: 'FeatureCollection',
   features: [],
 });
-
-function offlineStyle(theme: AtlasMapProps['theme']): StyleSpecification {
-  return {
-    version: 8,
-    name: 'Acceptance test background',
-    sources: {},
-    layers: [
-      {
-        id: 'background',
-        type: 'background',
-        paint: {
-          'background-color': theme === 'dark' ? '#151714' : '#e8e6df',
-        },
-      },
-    ],
-  };
-}
 
 function mapStyle(theme: AtlasMapProps['theme']): string | StyleSpecification {
   const params = new URLSearchParams(window.location.search);
@@ -265,12 +249,14 @@ export function AtlasMap({
   const mapRef = useRef<MapLibreMap | null>(null);
   const propsRef = useRef({ center, radiusMeters, incidents, selectedIncidentId, onPointChange, onIncidentSelect });
   const [mapError, setMapError] = useState<string | null>(null);
+  const [readyTheme, setReadyTheme] = useState<AtlasMapProps['theme'] | null>(null);
 
   propsRef.current = { center, radiusMeters, incidents, selectedIncidentId, onPointChange, onIncidentSelect };
 
   useEffect(() => {
     if (!containerRef.current) return;
 
+    setReadyTheme(null);
     let ready = false;
     const map = new maplibregl.Map({
       container: containerRef.current,
@@ -309,6 +295,7 @@ export function AtlasMap({
         ready = true;
         window.clearTimeout(loadTimeout);
         setMapError(null);
+        map.once('idle', () => setReadyTheme(theme));
       } catch (reason) {
         console.error('Failed to initialize atlas map layers', reason);
         setMapError('The map background could not be initialized. Incident evidence remains available in the panel.');
@@ -392,7 +379,12 @@ export function AtlasMap({
   }, [center, radiusMeters]);
 
   return (
-    <div className="map-stage" aria-label="Crime evidence map">
+    <div
+      aria-label="Crime evidence map"
+      className="map-stage"
+      data-map-ready={readyTheme === theme ? 'true' : 'false'}
+      data-map-theme={theme}
+    >
       <div ref={containerRef} className="map-canvas" />
       <div className="map-veil" />
       {mapError ? (

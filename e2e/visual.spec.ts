@@ -15,10 +15,8 @@ test('captures primary visual states at each product viewport', async ({ page },
   await page.goto('/?e2e=1');
   await expect(page.getByTestId('reported-count')).toHaveText('5');
   await expect(page.getByLabel('Interactive map of published crime incident locations')).toBeVisible();
-  await page.evaluate(() => new Promise<void>((resolve) => {
-    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-  }));
-  await page.waitForTimeout(500);
+  await expect(page.locator('.map-stage')).toHaveAttribute('data-map-ready', 'true');
+  await expect(page.locator('.map-stage')).toHaveAttribute('data-map-theme', 'light');
 
   await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-light.png` });
 
@@ -64,6 +62,8 @@ test('captures primary visual states at each product viewport', async ({ page },
 
   await page.getByRole('button', { name: 'Switch to dark theme' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(page.locator('.map-stage')).toHaveAttribute('data-map-theme', 'dark');
+  await expect(page.locator('.map-stage')).toHaveAttribute('data-map-ready', 'true');
   if (testInfo.project.name.startsWith('mobile')) {
     await page.getByTestId('evidence-panel').evaluate((element) => {
       element.scrollIntoView({ block: 'start' });
