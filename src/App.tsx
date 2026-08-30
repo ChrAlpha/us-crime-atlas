@@ -1,15 +1,20 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { findProviderForPoint } from './data/providers';
 import { parseUrlState, serializeUrlState } from './domain/urlState';
 import { useIncidentAnalysis } from './hooks/useIncidentAnalysis';
 import type { AtlasState, Coordinates, CrimeGroup, Incident, SelectedPlace } from './types';
-import { AtlasMap } from './components/AtlasMap';
 import { EvidencePanel } from './components/EvidencePanel';
 import { AtlasIcon, CloseIcon, InfoIcon, MoonIcon, SunIcon } from './components/Icons';
+import { MapErrorBoundary } from './components/MapErrorBoundary';
 import { SearchPanel } from './components/SearchPanel';
 import { SourceDialog } from './components/SourceDialog';
 
 type Theme = 'light' | 'dark';
+
+const AtlasMap = lazy(async () => {
+  const module = await import('./components/AtlasMap');
+  return { default: module.AtlasMap };
+});
 
 function initialTheme(): Theme {
   const stored = window.localStorage.getItem('us-crime-atlas-theme');
@@ -145,15 +150,25 @@ export default function App() {
   return (
     <main className="atlas-app">
       <a className="skip-link" href="#place-query">Skip to place search</a>
-      <AtlasMap
-        center={atlasState.place.coordinates}
-        incidents={incidentState.analysis?.mapIncidents ?? []}
-        onIncidentSelect={selectIncident}
-        onPointChange={chooseMapPoint}
-        radiusMeters={atlasState.radiusMeters}
-        selectedIncidentId={selectedIncidentId}
-        theme={theme}
-      />
+      <MapErrorBoundary>
+        <Suspense
+          fallback={(
+            <div className="map-stage map-stage--loading" role="status">
+              <span>Loading map</span>
+            </div>
+          )}
+        >
+          <AtlasMap
+            center={atlasState.place.coordinates}
+            incidents={incidentState.analysis?.mapIncidents ?? []}
+            onIncidentSelect={selectIncident}
+            onPointChange={chooseMapPoint}
+            radiusMeters={atlasState.radiusMeters}
+            selectedIncidentId={selectedIncidentId}
+            theme={theme}
+          />
+        </Suspense>
+      </MapErrorBoundary>
 
       <header className="brand-bar glass-panel">
         <div className="brand-lockup">

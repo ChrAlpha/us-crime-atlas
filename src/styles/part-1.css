@@ -126,6 +126,65 @@ button:disabled {
   z-index: 0;
 }
 
+.map-stage--loading {
+  display: grid;
+  place-items: center;
+  color: var(--ink-tertiary);
+  background:
+    linear-gradient(90deg, transparent 49.5%, var(--border) 50%, transparent 50.5%),
+    linear-gradient(transparent 49.5%, var(--border) 50%, transparent 50.5%),
+    var(--surface-muted);
+  background-size: 52px 52px;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.map-stage--loading span {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-solid);
+}
+
+.map-stage--failed {
+  display: grid;
+  place-items: center;
+  background: var(--surface-muted);
+}
+
+.map-failure {
+  display: grid;
+  width: min(320px, calc(100% - 32px));
+  gap: 7px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow);
+}
+
+.map-failure strong {
+  font-size: 15px;
+}
+
+.map-failure span {
+  color: var(--ink-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.map-failure button {
+  min-height: 40px;
+  margin-top: 5px;
+  border: 0;
+  border-radius: 10px;
+  color: var(--surface-solid);
+  background: var(--ink);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .map-canvas {
   background: #e8e6df;
 }

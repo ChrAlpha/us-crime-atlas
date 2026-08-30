@@ -453,6 +453,10 @@
     min-height: 44px;
   }
 
+  .map-failure button {
+    min-height: 44px;
+  }
+
   .analysis-controls.is-open {
     padding-top: 2px;
   }

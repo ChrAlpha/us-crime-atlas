@@ -122,3 +122,16 @@ test('captures selected raw-report evidence', async ({ page }, testInfo) => {
   await selectedIncident.scrollIntoViewIfNeeded();
   await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-selected-report.png` });
 });
+
+test('keeps the product shell usable when the map chunk fails', async ({ page }, testInfo) => {
+  await page.route('**/src/components/AtlasMap.tsx*', (route) => (
+    route.fulfill({ status: 503, body: 'Map chunk unavailable' })
+  ));
+  await mockOfficialSources(page);
+  await page.goto('/?e2e=1');
+  await expect(page.getByText('Map unavailable')).toBeVisible();
+  await expect(page.getByRole('search')).toBeVisible();
+  await expect(page.getByTestId('reported-count')).toHaveText('5');
+  await expect(page.getByRole('button', { name: 'Reload map' })).toBeVisible();
+  await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-map-failure.png` });
+});
