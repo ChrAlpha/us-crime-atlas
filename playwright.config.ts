@@ -18,6 +18,7 @@ export default defineConfig({
   projects: [
     { name: 'desktop-chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 960 } } },
     { name: 'tablet-chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1024, height: 768 } } },
+    { name: 'tablet-compact-chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 960, height: 800 } } },
     { name: 'mobile-chromium', use: { ...devices['iPhone 13'], browserName: 'chromium' } },
   ],
   webServer: {

@@ -243,10 +243,13 @@ function updateAtlasData(
 }
 
 function viewportPadding() {
-  if (window.innerWidth <= 820) {
-    return { top: 150, right: 32, bottom: Math.min(300, window.innerHeight * 0.36), left: 32 };
+  if (window.innerWidth <= 1000) {
+    return { top: 32, right: 32, bottom: 32, left: 32 };
   }
-  return { top: 110, right: 408, bottom: 70, left: 388 };
+  if (window.innerWidth <= 1180) {
+    return { top: 96, right: 364, bottom: 54, left: 322 };
+  }
+  return { top: 100, right: 468, bottom: 60, left: 404 };
 }
 
 export function AtlasMap({

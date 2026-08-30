@@ -9,8 +9,27 @@ test('captures primary visual states at each product viewport', async ({ page },
   await page.evaluate(() => new Promise<void>((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
   }));
+  await page.waitForTimeout(500);
 
   await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-light.png` });
+
+  const searchPanel = await page.getByLabel('Place and analysis controls').boundingBox();
+  const evidencePanel = await page.getByTestId('evidence-panel').boundingBox();
+  expect(searchPanel).not.toBeNull();
+  expect(evidencePanel).not.toBeNull();
+  if (testInfo.project.name.startsWith('desktop')) {
+    expect(searchPanel!.height).toBeLessThan(760);
+  }
+  if (testInfo.project.name === 'tablet-chromium') {
+    const mapWorkArea = evidencePanel!.x - (searchPanel!.x + searchPanel!.width);
+    expect(mapWorkArea).toBeGreaterThanOrEqual(350);
+  }
+  if (testInfo.project.name === 'tablet-compact-chromium') {
+    const mapStage = await page.locator('.map-stage').boundingBox();
+    expect(mapStage).not.toBeNull();
+    expect(mapStage!.width).toBeGreaterThanOrEqual(900);
+    expect(mapStage!.y).toBeGreaterThanOrEqual(searchPanel!.y + searchPanel!.height);
+  }
 
   if (testInfo.project.name.startsWith('mobile')) {
     await page.getByRole('button', { name: 'Analysis settings' }).click();

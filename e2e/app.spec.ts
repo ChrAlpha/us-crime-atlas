@@ -42,7 +42,10 @@ test('updates provider, filters, radius, URL state, and methodology dialog', asy
   await expect(page.getByText('Chicago Police Department').first()).toBeVisible();
   await expect(page.getByTestId('reported-count')).toHaveText('4');
 
-  if (testInfo.project.name.startsWith('mobile')) {
+  if (
+    testInfo.project.name.startsWith('mobile')
+    || testInfo.project.name.startsWith('tablet-compact')
+  ) {
     const settingsToggle = page.getByRole('button', { name: 'Analysis settings' });
     await settingsToggle.click();
     await expect(settingsToggle).toHaveAttribute('aria-expanded', 'true');
