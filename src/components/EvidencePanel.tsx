@@ -48,11 +48,17 @@ function trendCopy(analysis: AnalysisResult) {
   return `${change}% ${analysis.trendDirection === 'up' ? 'higher' : 'lower'} than previous equal window`;
 }
 
-function relativeCopy(analysis: AnalysisResult) {
-  if (analysis.relativeActivity === null) {
-    return 'Nearby density has no usable denominator in this window.';
+function comparisonHeadline(analysis: AnalysisResult): string {
+  return analysis.relativeActivity === null
+    ? 'No stable nearby comparison'
+    : `${analysis.relativeActivity.toFixed(2)}× nearby weighted report density`;
+}
+
+function comparisonRangeLabel(radiusMeters: number): string {
+  if (radiusMeters % 1000 === 0) {
+    return `${radiusMeters / 1000} to ${radiusMeters * 3 / 1000} km`;
   }
-  return `${analysis.relativeActivity.toFixed(2)}× nearby density after the published category weights are applied.`;
+  return `${radiusLabel(radiusMeters)} to ${radiusLabel(radiusMeters * 3)}`;
 }
 
 function latestCopy(analysis: AnalysisResult) {
@@ -123,19 +129,23 @@ function AnalysisContent({
 }) {
   const band = BAND_COPY[analysis.band];
   const maxDaily = Math.max(1, ...analysis.dailyActivity.map((day) => day.count));
+  const observationCount = analysis.currentCount + analysis.nearbyCurrentIncidents.length;
 
   return (
     <>
       <section className={`activity-band activity-band--${analysis.band}`} data-testid="activity-band">
         <div className="activity-band__status">
           <span className="activity-band__dot" aria-hidden="true" />
-          Local comparison
+          <span>Local comparison</span>
+          <span className="activity-band__classification">{band.label}</span>
         </div>
-        <strong>{band.label}</strong>
-        <p>{relativeCopy(analysis)} {band.detail}</p>
+        <strong>{comparisonHeadline(analysis)}</strong>
+        <p>{band.detail} This describes published reporting activity, not a safety grade.</p>
         <div className="confidence-row">
-          <span>Evidence confidence: <strong>{analysis.confidence}</strong></span>
-          <span>{analysis.currentCount + analysis.nearbyCurrentIncidents.length} current-window observations</span>
+          <span>Confidence: <strong>{analysis.confidence}</strong> · {observationCount} observations</span>
+          <span>
+            {radiusLabel(radiusMeters)} circle · {comparisonRangeLabel(radiusMeters)} nearby · {windowDays} days
+          </span>
         </div>
       </section>
 
@@ -171,6 +181,45 @@ function AnalysisContent({
           <small>Between {radiusLabel(radiusMeters)} and {radiusLabel(radiusMeters * 3)}</small>
         </article>
       </div>
+
+      {selectedIncident ? (
+        <section className="selected-incident" aria-live="polite">
+          <span className={`category-dot category-dot--${selectedIncident.category}`} aria-hidden="true" />
+          <div>
+            <h3>{CATEGORY_LABELS[selectedIncident.category]} · {selectedIncident.rawCategory}</h3>
+            <p>{selectedIncident.description}</p>
+            <small>
+              {formatSourceTimestamp(selectedIncident.occurredAt)} · {selectedIncident.locationLabel}. Public point
+              precision: {selectedIncident.precision}.
+            </small>
+          </div>
+        </section>
+      ) : null}
+
+      <section className="evidence-section">
+        <div className="section-heading">
+          <h3>Most recent selected-area reports</h3>
+          <span>{analysis.currentCount} total</span>
+        </div>
+        {analysis.currentIncidents.length > 0 ? (
+          <div className="incident-list">
+            {analysis.currentIncidents.slice(0, 8).map((incident) => (
+              <button key={incident.id} onClick={() => onIncidentSelect(incident)} type="button">
+                <span className={`category-dot category-dot--${incident.category}`} aria-hidden="true" />
+                <span>
+                  <strong>{CATEGORY_LABELS[incident.category]} · {incident.rawCategory}</strong>
+                  <small>{incident.locationLabel}</small>
+                </span>
+                <time dateTime={incident.occurredAt}>{formatSourceTimestamp(incident.occurredAt).split(' · ')[0]}</time>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="empty-copy">
+            No reports in the selected radius match the active categories and {windowDays}-day window.
+          </p>
+        )}
+      </section>
 
       <section className="evidence-section">
         <div className="section-heading">
@@ -218,45 +267,6 @@ function AnalysisContent({
           </div>
         ) : (
           <p className="empty-copy">No selected categories were observed in this radius and date window.</p>
-        )}
-      </section>
-
-      {selectedIncident ? (
-        <section className="selected-incident" aria-live="polite">
-          <span className={`category-dot category-dot--${selectedIncident.category}`} aria-hidden="true" />
-          <div>
-            <h3>{CATEGORY_LABELS[selectedIncident.category]} · {selectedIncident.rawCategory}</h3>
-            <p>{selectedIncident.description}</p>
-            <small>
-              {formatSourceTimestamp(selectedIncident.occurredAt)} · {selectedIncident.locationLabel}. Public point
-              precision: {selectedIncident.precision}.
-            </small>
-          </div>
-        </section>
-      ) : null}
-
-      <section className="evidence-section">
-        <div className="section-heading">
-          <h3>Most recent selected-area reports</h3>
-          <span>{analysis.currentCount} total</span>
-        </div>
-        {analysis.currentIncidents.length > 0 ? (
-          <div className="incident-list">
-            {analysis.currentIncidents.slice(0, 8).map((incident) => (
-              <button key={incident.id} onClick={() => onIncidentSelect(incident)} type="button">
-                <span className={`category-dot category-dot--${incident.category}`} aria-hidden="true" />
-                <span>
-                  <strong>{CATEGORY_LABELS[incident.category]} · {incident.rawCategory}</strong>
-                  <small>{incident.locationLabel}</small>
-                </span>
-                <time dateTime={incident.occurredAt}>{formatSourceTimestamp(incident.occurredAt).split(' · ')[0]}</time>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <p className="empty-copy">
-            No reports in the selected radius match the active categories and {windowDays}-day window.
-          </p>
         )}
       </section>
 

@@ -32,8 +32,10 @@ test('captures primary visual states at each product viewport', async ({ page },
   }
 
   if (testInfo.project.name.startsWith('mobile')) {
-    await page.getByRole('button', { name: 'Analysis settings' }).click();
+    const settingsToggle = page.getByRole('button', { name: 'Analysis settings' });
+    await settingsToggle.click();
     await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-controls.png` });
+    await settingsToggle.click();
   }
 
   await page.getByRole('button', { name: 'Sources & methodology' }).first().click();
@@ -43,5 +45,10 @@ test('captures primary visual states at each product viewport', async ({ page },
 
   await page.getByRole('button', { name: 'Switch to dark theme' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  if (testInfo.project.name.startsWith('mobile')) {
+    await page.getByTestId('evidence-panel').evaluate((element) => {
+      element.scrollIntoView({ block: 'start' });
+    });
+  }
   await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-dark.png` });
 });

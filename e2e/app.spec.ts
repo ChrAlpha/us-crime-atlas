@@ -13,9 +13,14 @@ test('renders evidence-first analysis and passes a serious accessibility audit',
   await page.goto('/?e2e=1');
 
   await expect(page.getByTestId('reported-count')).toHaveText('5');
-  await expect(page.getByTestId('activity-band')).toContainText('nearby density');
+  await expect(page.getByTestId('activity-band')).toContainText('4.32× nearby weighted report density');
+  await expect(page.getByTestId('activity-band')).toContainText('1 km circle · 1 to 3 km nearby · 30 days');
   await expect(page.getByText('NYPD Complaint Data Current (YTD)')).toBeVisible();
-  await expect(page.getByText('Evidence confidence:')).toBeVisible();
+  await expect(page.getByText('Confidence: medium')).toBeVisible();
+  const evidenceHeadings = await page.locator('.evidence-section h3').allTextContents();
+  expect(evidenceHeadings.indexOf('Most recent selected-area reports')).toBeLessThan(
+    evidenceHeadings.indexOf('Recent rhythm'),
+  );
   await expectNoHorizontalOverflow(page);
 
   const accessibility = await new AxeBuilder({ page })
