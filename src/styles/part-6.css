@@ -326,9 +326,14 @@
   .brand-bar {
     z-index: 30;
     order: 1;
-    height: 52px;
+    height: 56px;
     padding: 6px 8px;
     flex: 0 0 auto;
+  }
+
+  .icon-button {
+    width: 44px;
+    height: 44px;
   }
 
   .brand-mark {
@@ -364,8 +369,12 @@
   }
 
   .place-search {
-    height: 46px;
+    height: 52px;
     margin-top: 12px;
+  }
+
+  .place-search button {
+    height: 44px;
   }
 
   .featured-places {
@@ -374,7 +383,7 @@
   }
 
   .featured-places button {
-    min-height: 36px;
+    min-height: 44px;
   }
 
   .provider-strip {
@@ -390,6 +399,11 @@
     min-height: 44px;
     margin-top: 10px;
     font-size: 13px;
+  }
+
+  .segmented-control button,
+  .filter-chips button {
+    min-height: 44px;
   }
 
   .analysis-controls.is-open {
@@ -421,6 +435,11 @@
     top: 10px;
     right: 10px;
     bottom: auto;
+  }
+
+  .maplibregl-ctrl-group button {
+    width: 44px;
+    height: 44px;
   }
 
   .maplibregl-ctrl-attrib {
@@ -466,6 +485,20 @@
 
   .search-panel h1 {
     max-width: calc(100vw - 90px);
+  }
+
+  .provider-strip {
+    min-height: 52px;
+    align-items: center;
+  }
+
+  .provider-strip small {
+    display: none;
+  }
+
+  .map-stage {
+    height: 30dvh;
+    min-height: 200px;
   }
 
   .confidence-row {

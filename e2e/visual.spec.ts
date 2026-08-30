@@ -1,5 +1,14 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 import { mockOfficialSources } from './fixtures';
+
+async function expectMinimumTargetHeight(locator: Locator, minimum = 44): Promise<void> {
+  const count = await locator.count();
+  for (let index = 0; index < count; index += 1) {
+    const box = await locator.nth(index).boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.height).toBeGreaterThanOrEqual(minimum);
+  }
+}
 
 test('captures primary visual states at each product viewport', async ({ page }, testInfo) => {
   await mockOfficialSources(page);
@@ -32,8 +41,12 @@ test('captures primary visual states at each product viewport', async ({ page },
   }
 
   if (testInfo.project.name.startsWith('mobile')) {
+    expect(evidencePanel!.y).toBeLessThan(page.viewportSize()!.height - 48);
+    await expectMinimumTargetHeight(page.locator('.brand-bar .icon-button, .locate-button, .place-search button'));
+    await expectMinimumTargetHeight(page.locator('.featured-places button'));
     const settingsToggle = page.getByRole('button', { name: 'Analysis settings' });
     await settingsToggle.click();
+    await expectMinimumTargetHeight(page.locator('.analysis-controls button'));
     await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-controls.png` });
     await settingsToggle.click();
   }

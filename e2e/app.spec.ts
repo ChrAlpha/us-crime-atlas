@@ -17,6 +17,8 @@ test('renders evidence-first analysis and passes a serious accessibility audit',
   await expect(page.getByTestId('activity-band')).toContainText('1 km circle · 1 to 3 km nearby · 30 days');
   await expect(page.getByText('NYPD Complaint Data Current (YTD)')).toBeVisible();
   await expect(page.getByText('Confidence: medium')).toBeVisible();
+  await expect(page.locator('.provider-strip')).toHaveRole('button');
+  await expect(page.locator('.method-button')).toHaveCount(0);
   const evidenceHeadings = await page.locator('.evidence-section h3').allTextContents();
   expect(evidenceHeadings.indexOf('Most recent selected-area reports')).toBeLessThan(
     evidenceHeadings.indexOf('Recent rhythm'),

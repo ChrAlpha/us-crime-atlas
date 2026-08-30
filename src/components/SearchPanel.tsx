@@ -138,9 +138,14 @@ export function SearchPanel({
         ))}
       </div>
 
-      <div className={`provider-strip${provider ? '' : ' is-unsupported'}`}>
+      <button
+        aria-label="Sources & methodology"
+        className={`provider-strip${provider ? '' : ' is-unsupported'}`}
+        onClick={onOpenSources}
+        type="button"
+      >
         <span className="provider-dot" aria-hidden="true" />
-        <span>
+        <span className="provider-strip__copy">
           <strong>{provider ? provider.meta.agency : 'No verified incident feed here yet'}</strong>
           <small>
             {provider
@@ -148,7 +153,11 @@ export function SearchPanel({
               : 'The map remains usable, but the atlas will not substitute proxy or synthetic crime data.'}
           </small>
         </span>
-      </div>
+        <span className="provider-strip__action" aria-hidden="true">
+          <InfoIcon size={15} />
+          Details
+        </span>
+      </button>
 
       <button
         aria-expanded={settingsOpen}
@@ -217,11 +226,6 @@ export function SearchPanel({
           </div>
         </fieldset>
       </div>
-
-      <button className="method-button" onClick={onOpenSources} type="button">
-        <InfoIcon size={16} />
-        Sources &amp; methodology
-      </button>
     </aside>
   );
 }

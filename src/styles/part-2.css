@@ -205,13 +205,23 @@
 
 .provider-strip {
   display: flex;
+  width: 100%;
   align-items: flex-start;
   gap: 10px;
   margin-top: 14px;
   padding: 11px;
   border: 1px solid var(--border);
   border-radius: 14px;
+  color: inherit;
+  text-align: left;
   background: color-mix(in srgb, var(--surface-muted) 62%, transparent);
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.provider-strip:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-muted);
 }
 
 .provider-strip.is-unsupported .provider-dot {
@@ -219,10 +229,21 @@
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink-tertiary) 12%, transparent);
 }
 
-.provider-strip > span:last-child {
+.provider-strip__copy {
   min-width: 0;
   display: grid;
   gap: 3px;
+}
+
+.provider-strip__action {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  color: var(--ink-tertiary);
+  font-size: 9px;
+  font-weight: 680;
 }
 
 .provider-strip strong {
