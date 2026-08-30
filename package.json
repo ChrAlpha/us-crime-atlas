@@ -2,6 +2,7 @@
   "name": "us-crime-atlas",
   "version": "0.0.1",
   "private": true,
+  "packageManager": "pnpm@11.13.1",
   "type": "module",
   "description": "Evidence-first travel-area visualization using official local crime incident data and MapLibre GL JS.",
   "engines": {
@@ -17,8 +18,8 @@
     "test:e2e": "playwright test",
     "test:data": "node scripts/check-data-sources.mjs",
     "test:runtime": "node scripts/check-runtime-queries.mjs",
-    "test:contracts": "npm run test:data && npm run test:runtime",
-    "check": "npm run typecheck && npm run test:unit && npm run build"
+    "test:contracts": "pnpm run test:data && pnpm run test:runtime",
+    "check": "pnpm run typecheck && pnpm run test:unit && pnpm run build"
   },
   "dependencies": {
     "maplibre-gl": "6.1.0",
