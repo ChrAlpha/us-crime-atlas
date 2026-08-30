@@ -41,6 +41,12 @@ test('captures primary visual states at each product viewport', async ({ page },
   await page.getByRole('button', { name: 'Sources & methodology' }).first().click();
   await expect(page.getByRole('dialog', { name: 'Sources & methodology' })).toBeVisible();
   await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-sources.png` });
+  if (testInfo.project.name.startsWith('mobile')) {
+    await page.locator('.formula-card').evaluate((element) => {
+      element.scrollIntoView({ block: 'center' });
+    });
+    await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-source-method.png` });
+  }
   await page.getByRole('button', { name: 'Close sources and methodology' }).click();
 
   await page.getByRole('button', { name: 'Switch to dark theme' }).click();

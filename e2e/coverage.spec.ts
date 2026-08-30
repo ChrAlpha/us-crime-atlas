@@ -44,6 +44,15 @@ test('keeps eleven-city navigation and source disclosure usable', async ({ page 
   const dialog = page.getByRole('dialog', { name: 'Sources & methodology' });
   await expect(dialog).toBeVisible();
   await expect(dialog.locator('.provider-cards article')).toHaveCount(11);
+  const sectionHeadings = await dialog.locator('.source-dialog__body h3').allTextContents();
+  expect(sectionHeadings[0]).toBe('Current source');
+  expect(sectionHeadings.indexOf('Current source')).toBeLessThan(
+    sectionHeadings.indexOf('How relative activity is calculated'),
+  );
+  expect(sectionHeadings.indexOf('Read these limitations before acting')).toBeLessThan(
+    sectionHeadings.indexOf('Other official local publishers'),
+  );
+  await expect(dialog.getByText('selected weighted incidents / selected km²')).toBeVisible();
   await expect(dialog.getByText('Philadelphia, Pennsylvania')).toBeVisible();
   await expect(dialog.getByText('Detroit, Michigan')).toBeVisible();
   await expect(dialog.getByText('Nashville, Tennessee')).toBeVisible();

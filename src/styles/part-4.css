@@ -236,6 +236,32 @@
   line-height: 1.6;
 }
 
+.formula-expression {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.formula-expression > span[aria-hidden="true"] {
+  color: var(--ink-tertiary);
+  font-family: var(--font-mono);
+}
+
+.formula-fraction {
+  display: grid;
+  min-width: 0;
+  text-align: center;
+}
+
+.formula-fraction code {
+  padding: 5px 8px;
+}
+
+.formula-fraction code:first-child {
+  border-bottom: 1px solid var(--border-strong);
+}
+
 .formula-card p,
 .method-note {
   margin: 10px 0 0;
@@ -275,6 +301,44 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
+}
+
+.provider-cards--active {
+  grid-template-columns: 1fr;
+}
+
+.provider-cards--active article {
+  padding: 18px;
+  background: color-mix(in srgb, var(--accent-soft) 54%, var(--surface-raised));
+}
+
+.provider-cards--active .provider-card__title span {
+  font-size: 9px;
+}
+
+.provider-cards--active .provider-card__title h4 {
+  font-size: 15px;
+}
+
+.provider-cards--active dl {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.provider-cards--active dt {
+  font-size: 10px;
+}
+
+.provider-cards--active dd {
+  font-size: 11px;
+}
+
+.provider-cards--active article > p {
+  font-size: 11px;
+}
+
+.provider-cards--active article > small {
+  font-size: 9px;
 }
 
 .provider-cards article {

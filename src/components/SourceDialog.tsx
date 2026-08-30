@@ -30,6 +30,43 @@ const limitations = [
   'A short quiet window does not guarantee safety, while a high historical count does not establish the probability of harm to an individual traveler.',
 ];
 
+function ProviderCard({ provider, active = false }: { provider: ProviderMeta; active?: boolean }) {
+  return (
+    <article className={active ? 'is-active' : undefined}>
+      <div className="provider-card__title">
+        <div>
+          <span>{provider.label}</span>
+          <h4>{provider.datasetName}</h4>
+        </div>
+        <a
+          aria-label={`Open ${provider.datasetName}`}
+          href={provider.sourceUrl}
+          rel="noreferrer"
+          target="_blank"
+        >
+          <ExternalIcon size={15} />
+        </a>
+      </div>
+      <dl>
+        <div>
+          <dt>Publisher</dt>
+          <dd>{provider.agency}</dd>
+        </div>
+        <div>
+          <dt>Cadence and lag</dt>
+          <dd>{provider.cadence}. {provider.delayNote}</dd>
+        </div>
+        <div>
+          <dt>Public location</dt>
+          <dd>{provider.precisionNote}</dd>
+        </div>
+      </dl>
+      <p>{provider.coverageNote}</p>
+      <small>Field contract verified {provider.lastVerified}</small>
+    </article>
+  );
+}
+
 export function SourceDialog({ open, activeProvider, onClose }: SourceDialogProps) {
   const closeRef = useRef<HTMLButtonElement | null>(null);
 
@@ -52,6 +89,9 @@ export function SourceDialog({ open, activeProvider, onClose }: SourceDialogProp
   const dismissBackdrop = (event: ReactMouseEvent<HTMLDivElement>) => {
     if (event.target === event.currentTarget) onClose();
   };
+  const otherProviders = activeProvider
+    ? providerMetadata.filter((provider) => provider.id !== activeProvider.id)
+    : providerMetadata;
 
   return (
     <div className="dialog-backdrop" onMouseDown={dismissBackdrop}>
@@ -83,6 +123,15 @@ export function SourceDialog({ open, activeProvider, onClose }: SourceDialogProp
         </header>
 
         <div className="source-dialog__body">
+          {activeProvider ? (
+            <section className="current-source-section">
+              <h3>Current source</h3>
+              <div className="provider-cards provider-cards--active">
+                <ProviderCard active provider={activeProvider} />
+              </div>
+            </section>
+          ) : null}
+
           <section>
             <div className="method-callout">
               <InfoIcon size={20} />
@@ -99,10 +148,18 @@ export function SourceDialog({ open, activeProvider, onClose }: SourceDialogProp
           <section>
             <h3>How relative activity is calculated</h3>
             <div className="formula-card">
-              <code>
-                relative activity = (selected weighted incidents / selected km²)<br />
-                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/ (nearby weighted incidents / annulus km²)
-              </code>
+              <div
+                aria-label="Relative activity equals selected weighted incidents per selected square kilometer divided by nearby weighted incidents per annulus square kilometer"
+                className="formula-expression"
+                role="img"
+              >
+                <code>relative activity</code>
+                <span aria-hidden="true">=</span>
+                <span className="formula-fraction">
+                  <code>selected weighted incidents / selected km²</code>
+                  <code>nearby weighted incidents / annulus km²</code>
+                </span>
+              </div>
               <p>
                 Below 0.65× is labeled lower; 0.65×–1.24× similar; 1.25×–1.99× elevated; and 2× or more markedly
                 elevated. Fewer than five current observations, or no usable nearby denominator, yields “not enough
@@ -123,46 +180,6 @@ export function SourceDialog({ open, activeProvider, onClose }: SourceDialogProp
             </div>
           </section>
 
-          <section>
-            <h3>Official local publishers</h3>
-            <div className="provider-cards">
-              {providerMetadata.map((provider) => (
-                <article className={activeProvider?.id === provider.id ? 'is-active' : undefined} key={provider.id}>
-                  <div className="provider-card__title">
-                    <div>
-                      <span>{provider.label}</span>
-                      <h4>{provider.datasetName}</h4>
-                    </div>
-                    <a
-                      aria-label={`Open ${provider.datasetName}`}
-                      href={provider.sourceUrl}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      <ExternalIcon size={15} />
-                    </a>
-                  </div>
-                  <dl>
-                    <div>
-                      <dt>Publisher</dt>
-                      <dd>{provider.agency}</dd>
-                    </div>
-                    <div>
-                      <dt>Cadence and lag</dt>
-                      <dd>{provider.cadence}. {provider.delayNote}</dd>
-                    </div>
-                    <div>
-                      <dt>Public location</dt>
-                      <dd>{provider.precisionNote}</dd>
-                    </div>
-                  </dl>
-                  <p>{provider.coverageNote}</p>
-                  <small>Field contract verified {provider.lastVerified}</small>
-                </article>
-              ))}
-            </div>
-          </section>
-
           <section className="limitations-section">
             <h3>Read these limitations before acting</h3>
             <ul>
@@ -173,6 +190,15 @@ export function SourceDialog({ open, activeProvider, onClose }: SourceDialogProp
                 </li>
               ))}
             </ul>
+          </section>
+
+          <section>
+            <h3>{activeProvider ? 'Other official local publishers' : 'Official local publishers'}</h3>
+            <div className="provider-cards">
+              {otherProviders.map((provider) => (
+                <ProviderCard key={provider.id} provider={provider} />
+              ))}
+            </div>
           </section>
         </div>
       </section>
