@@ -1,6 +1,6 @@
 {
   "name": "us-crime-atlas",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "private": true,
   "type": "module",
   "description": "Evidence-first travel-area visualization using official local crime incident data and MapLibre GL JS.",
