@@ -156,7 +156,7 @@ function ensureAtlasLayers(map: MapLibreMap) {
           15, ['+', 5, ['*', ['get', 'severity'], 0.48]],
         ],
         'circle-opacity': ['case', ['==', ['get', 'inside'], 1], 0.86, 0.34],
-        'circle-stroke-color': ['case', ['==', ['get', 'selected'], 1], '#1b1d19', '#ffffff'],
+        'circle-stroke-color': ['case', ['==', ['get', 'selected'], 1], '#1b1d19', '#f7f3eb'],
         'circle-stroke-width': ['case', ['==', ['get', 'selected'], 1], 3, 1.25],
         'circle-stroke-opacity': ['case', ['==', ['get', 'inside'], 1], 0.92, 0.48],
       },
@@ -201,7 +201,7 @@ function ensureAtlasLayers(map: MapLibreMap) {
         'text-size': 10,
       },
       paint: {
-        'text-color': '#ffffff',
+        'text-color': '#f7f3eb',
       },
     });
   }

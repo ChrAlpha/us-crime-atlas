@@ -7,7 +7,7 @@
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --surface: rgba(250, 249, 245, 0.9);
   --surface-solid: #faf9f5;
-  --surface-raised: #ffffff;
+  --surface-raised: #fdfcf8;
   --surface-muted: #efede7;
   --ink: #1b1d19;
   --ink-secondary: #62665d;
@@ -189,6 +189,11 @@ button:disabled {
   background: #e8e6df;
 }
 
+.map-stage > .map-canvas {
+  position: absolute;
+  inset: 0;
+}
+
 :root[data-theme="dark"] .map-canvas {
   background: #151714;
 }
@@ -225,7 +230,7 @@ button:disabled {
   font-size: 13px;
 }
 
-.maplibregl-ctrl-top-right {
+.map-stage .maplibregl-ctrl-top-right {
   top: 86px;
   right: 394px;
 }
@@ -239,13 +244,13 @@ button:disabled {
   backdrop-filter: blur(18px);
 }
 
-.maplibregl-ctrl-group button {
+.map-stage .maplibregl-ctrl-group button {
   width: 38px;
   height: 38px;
   background-color: transparent !important;
 }
 
-.maplibregl-ctrl-group button + button {
+.map-stage .maplibregl-ctrl-group button + button {
   border-top-color: var(--border) !important;
 }
 

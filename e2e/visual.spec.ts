@@ -12,6 +12,7 @@ async function expectMinimumTargetHeight(locator: Locator, minimum = 44): Promis
 
 async function expectMapReady(page: Page, theme: 'light' | 'dark' = 'light'): Promise<void> {
   await expect(page.getByLabel('Interactive map of published crime incident locations')).toBeVisible();
+  await expect(page.locator('.map-canvas')).toHaveCSS('position', 'absolute');
   await expect(page.locator('.map-stage')).toHaveAttribute('data-map-theme', theme);
   await expect(page.locator('.map-stage')).toHaveAttribute('data-map-ready', 'true');
 }
@@ -28,12 +29,16 @@ test('captures primary visual states at each product viewport', async ({ page },
   const evidencePanel = await page.getByTestId('evidence-panel').boundingBox();
   expect(searchPanel).not.toBeNull();
   expect(evidencePanel).not.toBeNull();
+  const mapControls = await page.locator('.maplibregl-ctrl-top-right').boundingBox();
+  expect(mapControls).not.toBeNull();
   if (testInfo.project.name.startsWith('desktop')) {
     expect(searchPanel!.height).toBeLessThan(760);
+    expect(mapControls!.x + mapControls!.width).toBeLessThan(evidencePanel!.x);
   }
   if (testInfo.project.name === 'tablet-chromium') {
     const mapWorkArea = evidencePanel!.x - (searchPanel!.x + searchPanel!.width);
     expect(mapWorkArea).toBeGreaterThanOrEqual(350);
+    expect(mapControls!.x + mapControls!.width).toBeLessThan(evidencePanel!.x);
   }
   if (testInfo.project.name === 'tablet-compact-chromium') {
     const mapStage = await page.locator('.map-stage').boundingBox();
@@ -46,6 +51,7 @@ test('captures primary visual states at each product viewport', async ({ page },
     expect(evidencePanel!.y).toBeLessThan(page.viewportSize()!.height - 48);
     await expectMinimumTargetHeight(page.locator('.brand-bar .icon-button, .locate-button, .place-search button'));
     await expectMinimumTargetHeight(page.locator('.featured-places button'));
+    await expectMinimumTargetHeight(page.locator('.source-card > a, .source-card__method'));
     const settingsToggle = page.getByRole('button', { name: 'Analysis settings' });
     await settingsToggle.click();
     await expectMinimumTargetHeight(page.locator('.analysis-controls button'));
@@ -55,6 +61,9 @@ test('captures primary visual states at each product viewport', async ({ page },
 
   await page.getByRole('button', { name: 'Sources & methodology' }).first().click();
   await expect(page.getByRole('dialog', { name: 'Sources & methodology' })).toBeVisible();
+  if (testInfo.project.name.startsWith('mobile')) {
+    await expectMinimumTargetHeight(page.locator('.provider-card__title a'));
+  }
   await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-sources.png` });
   if (testInfo.project.name.startsWith('mobile')) {
     await page.locator('.formula-card').evaluate((element) => {
@@ -134,4 +143,39 @@ test('keeps the product shell usable when the map chunk fails', async ({ page },
   await expect(page.getByTestId('reported-count')).toHaveText('5');
   await expect(page.getByRole('button', { name: 'Reload map' })).toBeVisible();
   await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-map-failure.png` });
+});
+
+test('captures the lazy map loading state without layout shift', async ({ page }, testInfo) => {
+  await page.route('**/src/components/AtlasMap.tsx*', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+    await route.continue();
+  });
+  await mockOfficialSources(page);
+  await page.goto('/?e2e=1');
+  await expect(page.getByText('Loading map')).toBeVisible();
+  const loadingStage = await page.locator('.map-stage--loading').boundingBox();
+  expect(loadingStage).not.toBeNull();
+  await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-map-loading.png` });
+  await expectMapReady(page);
+  const readyStage = await page.locator('.map-stage').boundingBox();
+  expect(readyStage).not.toBeNull();
+  expect(readyStage!.width).toBe(loadingStage!.width);
+  expect(readyStage!.height).toBe(loadingStage!.height);
+});
+
+test('captures the mobile filter guardrail toast', async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.startsWith('mobile'), 'Mobile visual state');
+  await mockOfficialSources(page);
+  await page.goto('/?e2e=1');
+  await expect(page.getByTestId('reported-count')).toHaveText('5');
+  await page.getByRole('button', { name: 'Analysis settings' }).click();
+  const groupFilters = page.locator('.filter-chips');
+  for (const group of ['Property', 'Vehicle', 'Weapons', 'Other']) {
+    await groupFilters.getByRole('button', { name: group, exact: true }).click();
+  }
+  await groupFilters.getByRole('button', { name: 'Violent', exact: true }).click();
+  const toast = page.getByRole('status').filter({ hasText: 'At least one published incident group' });
+  await expect(toast).toBeVisible();
+  await expectMinimumTargetHeight(toast.getByRole('button', { name: 'Dismiss message' }));
+  await page.screenshot({ path: 'test-results/mobile-chromium-viewport-guardrail-toast.png' });
 });
