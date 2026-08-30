@@ -60,12 +60,12 @@ A change is release-ready only when the relevant automated gates pass and the vi
 
 ## Automated gates
 
-- [ ] `npm run typecheck`
-- [ ] `npm run test:unit` with configured coverage thresholds
-- [ ] `npm run build`
-- [ ] `npm run test:data` across all eleven official city contracts
-- [ ] `npm run test:runtime` across all eleven runtime-shaped provider queries
-- [ ] `npm run test:e2e` in desktop and mobile Chromium projects
+- [ ] `pnpm run typecheck`
+- [ ] `pnpm run test:unit` with configured coverage thresholds
+- [ ] `pnpm run build`
+- [ ] `pnpm run test:data` across all eleven official city contracts
+- [ ] `pnpm run test:runtime` across all eleven runtime-shaped provider queries
+- [ ] `pnpm run test:e2e` in desktop and mobile Chromium projects
 - [ ] Browser acceptance explicitly exercises one Socrata and one ArcGIS provider
 - [ ] Scheduled `.github/workflows/provider-health.yml` can run manually and is configured for twice-weekly checks
 

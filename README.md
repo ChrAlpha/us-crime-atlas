@@ -53,20 +53,20 @@ This is a local activity signal, not a prediction of personal harm. Raw counts a
 Requirements: Node.js 22.12 or newer.
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 Quality gates:
 
 ```bash
-npm run typecheck
-npm run test:unit
-npm run build
-npm run test:data
-npm run test:runtime
-npx playwright install chromium
-npm run test:e2e
+pnpm run typecheck
+pnpm run test:unit
+pnpm run build
+pnpm run test:data
+pnpm run test:runtime
+pnpm exec playwright install chromium
+pnpm run test:e2e
 ```
 
 `test:data` validates live source metadata, required fields, usable sample geometry, and the OpenFreeMap style. `test:runtime` executes the same 180-day date and spatial query shape used by the product against all eleven registered city sources. Playwright mocks source responses so browser acceptance remains deterministic while the live jobs detect upstream drift.

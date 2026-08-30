@@ -172,9 +172,9 @@ Map popovers and source notes state the precision. The UI must not imply that a 
 
 ## Live contracts and health monitoring
 
-`npm run test:data` checks all eleven sources and the base-map style. Socrata checks resolve reviewed metadata aliases and inspect recent rows for usable numeric geometry. ArcGIS checks verify each reviewed layer identity, required fields, and one WGS84 feature.
+`pnpm run test:data` checks all eleven sources and the base-map style. Socrata checks resolve reviewed metadata aliases and inspect recent rows for usable numeric geometry. ArcGIS checks verify each reviewed layer identity, required fields, and one WGS84 feature.
 
-`npm run test:runtime` executes a 180-day date-and-space query shaped like the product request against every registered provider. This catches failures that metadata-only checks miss, including invalid date syntax, text-coordinate conversion, envelope semantics, and an endpoint that returns no recent records.
+`pnpm run test:runtime` executes a 180-day date-and-space query shaped like the product request against every registered provider. This catches failures that metadata-only checks miss, including invalid date syntax, text-coordinate conversion, envelope semantics, and an endpoint that returns no recent records.
 
 The scheduled provider-health workflow runs every Monday and Thursday. A contract failure must be investigated against the official publisher; it must not be suppressed merely to keep a green badge.
 
