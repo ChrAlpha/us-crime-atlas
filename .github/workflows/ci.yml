@@ -88,6 +88,8 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
       - name: Run Playwright acceptance suite
         run: pnpm run test:e2e
+      - name: Smoke-test the production bundle under the Pages subpath
+        run: pnpm run test:e2e:production
       - name: Upload browser report and screenshots
         if: always()
         uses: actions/upload-artifact@v7

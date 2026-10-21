@@ -12,7 +12,12 @@ export default defineConfig({
         test: {
           name: 'node',
           environment: 'node',
-          include: ['src/domain/**/*.test.ts', 'src/data/**/*.test.ts', 'src/components/mapLayers.test.ts'],
+          include: [
+            'src/domain/**/*.test.ts',
+            'src/data/**/*.test.ts',
+            'src/components/mapLayers.test.ts',
+            'src/components/mapWorker.test.ts',
+          ],
         },
       },
       {

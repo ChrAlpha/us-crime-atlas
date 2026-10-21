@@ -175,12 +175,15 @@ export const ATLAS_LAYERS: readonly LayerSpecification[] = [
   },
 ];
 
+/** OpenFreeMap serves only Noto Sans; MapLibre's default font stack would 404 on every label. */
+export const CLUSTER_LABEL_FONT = ['Noto Sans Bold'];
+
 /** Symbol layers need glyphs; the offline e2e style has none, so clusters stay unlabeled there. */
 export const CLUSTER_LABEL_LAYER_SPEC: LayerSpecification = {
   id: CLUSTER_LABEL_LAYER,
   type: 'symbol',
   source: SOURCE_INCIDENTS,
   filter: ['has', 'point_count'],
-  layout: { 'text-field': ['get', 'point_count_abbreviated'], 'text-size': 10 },
+  layout: { 'text-field': ['get', 'point_count_abbreviated'], 'text-font': CLUSTER_LABEL_FONT, 'text-size': 10 },
   paint: { 'text-color': '#f7f3eb' },
 };

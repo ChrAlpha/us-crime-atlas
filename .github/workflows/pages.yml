@@ -42,6 +42,11 @@ jobs:
           test -f dist/index.html
           grep -q '/us-crime-atlas/assets/' dist/index.html
           grep -q '/us-crime-atlas/favicon.svg' dist/index.html
+      # The dev-server suite cannot see missing build assets (a blank map shipped this way once).
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Smoke-test the built site in a browser
+        run: pnpm run test:e2e:production
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v6
         with:

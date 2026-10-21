@@ -251,7 +251,8 @@ The scheduled provider-health workflow runs `pnpm run test:contracts` (both suit
 7. **Activity denominator.** Covered area is a transparent comparator but does not measure pedestrians, riders, visitors, or time spent at risk. Parks, rail yards and water inside city limits count as area with few or no incidents.
 8. **Small samples.** Short windows and small radii can be unstable even when the UI labels confidence low.
 9. **Environmental conditions.** Lighting, crowding, special events, weather, service disruptions, and time of day can matter more than a historical aggregate.
-10. **Portal availability.** A public API can be rate-limited, moved, revised, or temporarily unavailable despite passing the last health check.
+10. **Other agencies inside city limits.** Federal parkland (for example the National Mall, patrolled by the U.S. Park Police), campuses, airports and transit systems can be policed by agencies whose incidents are not in the city feed, so those areas can read as quieter than they are.
+11. **Portal availability.** A public API can be rate-limited, moved, revised, or temporarily unavailable despite passing the last health check.
 
 ## Adding a provider
 

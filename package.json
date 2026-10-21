@@ -16,6 +16,7 @@
     "test": "vitest",
     "test:unit": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "test:e2e:production": "playwright test --config playwright.production.config.ts",
     "test:data": "vitest run --config vitest.live.config.ts live/contracts.live.test.ts",
     "test:runtime": "vitest run --config vitest.live.config.ts live/runtime.live.test.ts",
     "test:contracts": "vitest run --config vitest.live.config.ts",

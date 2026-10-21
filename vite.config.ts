@@ -10,4 +10,6 @@ export default defineConfig({
   server: { host: '127.0.0.1', port: 4173 },
   preview: { host: '127.0.0.1', port: 4173 },
   build: { sourcemap: true },
+  // MapLibre starts its worker as a module worker.
+  worker: { format: 'es' },
 });

@@ -236,7 +236,7 @@ describe('atlas layer specifications', () => {
       type: 'symbol',
       source: SOURCE_INCIDENTS,
       filter: ['has', 'point_count'],
-      layout: { 'text-field': ['get', 'point_count_abbreviated'] },
+      layout: { 'text-field': ['get', 'point_count_abbreviated'], 'text-font': ['Noto Sans Bold'] },
     });
   });
 });

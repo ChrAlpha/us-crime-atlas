@@ -4,6 +4,8 @@ const isCi = Boolean(process.env.CI);
 
 export default defineConfig({
   testDir: './e2e',
+  // Runs against the built bundle via playwright.production.config.ts.
+  testIgnore: 'production.spec.ts',
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,

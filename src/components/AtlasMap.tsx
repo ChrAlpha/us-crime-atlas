@@ -1,5 +1,6 @@
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import './mapWorker';
 import type { GeoJSONSource, Map as MapLibreMap, MapMouseEvent, StyleSpecification } from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
 import { circlePolygon } from '../domain/geo';

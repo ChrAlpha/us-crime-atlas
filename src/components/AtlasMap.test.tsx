@@ -150,6 +150,7 @@ const fakes = vi.hoisted(() => {
 
 vi.mock('maplibre-gl', () => ({ Map: fakes.FakeMap, NavigationControl: fakes.FakeNavigationControl }));
 vi.mock('maplibre-gl/dist/maplibre-gl.css', () => ({}));
+vi.mock('./mapWorker', () => ({}));
 
 type FakeMap = InstanceType<typeof fakes.FakeMap>;
 

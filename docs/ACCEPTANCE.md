@@ -19,6 +19,7 @@ A change is release-ready only when the relevant automated gates pass and the vi
 - [ ] Unsupported locations show a clear coverage state and no fabricated result, including neighboring cities inside a provider's bounding box.
 - [ ] Analysis areas that cross city limits use only the covered area in densities and disclose the uncovered share; under 25% coverage withholds the comparison.
 - [ ] Network errors show source-specific failure text and a retry action.
+- [ ] The production bundle, served under the Pages subpath, loads every asset and starts the MapLibre worker (`pnpm run test:e2e:production`).
 - [ ] Reaching a request's record budget visibly lowers confidence and warns the user; affected selected-area counts read as lower bounds (`N+`) and the trend or nearby comparison is withheld rather than understated.
 - [ ] A feed with no records in the last 400 days shows a no-records state, never zero counts.
 - [ ] A window that starts before a dataset's first day is called out, and a previous window that does so withholds the trend.

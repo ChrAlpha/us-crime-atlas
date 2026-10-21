@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { OPENFREEMAP_STYLES } from '../src/components/mapLayers';
+import { CLUSTER_LABEL_FONT, OPENFREEMAP_STYLES } from '../src/components/mapLayers';
 import { ARCGIS_PAGE_SIZE } from '../src/data/providers/arcgis';
 import { ARCGIS_LAYER_CONTRACTS } from '../src/data/providers/arcgisCities';
 import { fetchJson } from '../src/data/providers/shared';
@@ -69,9 +69,21 @@ describe.each(ARCGIS_LAYER_CONTRACTS.map((contract) => [contract.meta.label, con
 
 describe('OpenFreeMap base styles', () => {
   it.each(Object.entries(OPENFREEMAP_STYLES))('serves a valid MapLibre v8 %s style', async (_theme, url) => {
-    const style = await fetchJson(url, 'OpenFreeMap') as { version?: number; sources?: object; layers?: unknown[] };
+    const style = await fetchJson(url, 'OpenFreeMap') as {
+      version?: number;
+      sources?: object;
+      layers?: unknown[];
+      glyphs?: string;
+    };
     expect(style.version).toBe(8);
     expect(Object.keys(style.sources ?? {}).length).toBeGreaterThan(0);
     expect(style.layers?.length).toBeGreaterThan(0);
+
+    // The cluster count labels request this font stack from the style's glyph server.
+    const glyphUrl = (style.glyphs ?? '')
+      .replace('{fontstack}', encodeURIComponent(CLUSTER_LABEL_FONT.join(',')))
+      .replace('{range}', '0-255');
+    const glyphs = await fetch(glyphUrl);
+    expect(glyphs.status, `${glyphUrl} does not serve the cluster label font`).toBe(200);
   });
 });

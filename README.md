@@ -72,7 +72,10 @@ pnpm run build
 pnpm run test:contracts   # live official sources (test:data + test:runtime)
 pnpm exec playwright install chromium
 pnpm run test:e2e
+pnpm run test:e2e:production   # built bundle under /us-crime-atlas/, as GitHub Pages serves it
 ```
+
+`test:e2e` runs against the dev server, which serves dependencies straight from `node_modules`. `test:e2e:production` builds the site for the Pages subpath and checks that every asset, including MapLibre's bundled worker, loads in a browser; the Pages workflow runs it before every deploy.
 
 City limits are committed in `src/data/jurisdictions.json`; regenerate them from Census TIGERweb with `pnpm run data:jurisdictions` when the Census vintage changes.
 
