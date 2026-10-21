@@ -170,6 +170,12 @@ export interface CategoryBreakdownItem {
   share: number;
 }
 
+export interface GroupBreakdownItem {
+  group: CrimeGroup;
+  count: number;
+  share: number;
+}
+
 export interface DailyActivity {
   date: string;
   count: number;
@@ -206,7 +212,11 @@ export interface AnalysisResult {
   band: EvidenceBand;
   confidence: EvidenceConfidence;
   categoryBreakdown: CategoryBreakdownItem[];
+  /** Selected-area reports per incident group, in `CRIME_GROUPS` order, zero counts included. */
+  groupBreakdown: GroupBreakdownItem[];
   dailyActivity: DailyActivity[];
+  /** Selected-area reports with a known time, by local hour 0–23. */
+  hourlyActivity: number[];
   latestObservedAt: string | null;
 }
 

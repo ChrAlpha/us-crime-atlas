@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CLUSTER_LABEL_FONT, OPENFREEMAP_STYLES } from '../src/components/mapLayers';
+import { RING_LABEL_FONT, OPENFREEMAP_STYLES } from '../src/components/mapLayers';
 import { ARCGIS_LAYER_CONTRACTS } from '../src/data/providers/arcgisCities';
 import { fetchJson } from '../src/data/providers/shared';
 import { metadataUrlFromEndpoint } from '../src/data/providers/socrata';
@@ -80,7 +80,7 @@ describe('OpenFreeMap base styles', () => {
 
     // The cluster count labels request this font stack from the style's glyph server.
     const glyphUrl = (style.glyphs ?? '')
-      .replace('{fontstack}', encodeURIComponent(CLUSTER_LABEL_FONT.join(',')))
+      .replace('{fontstack}', encodeURIComponent(RING_LABEL_FONT.join(',')))
       .replace('{range}', '0-255');
     const glyphs = await fetch(glyphUrl);
     expect(glyphs.status, `${glyphUrl} does not serve the cluster label font`).toBe(200);

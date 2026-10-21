@@ -14,8 +14,8 @@ export class MapErrorBoundary extends Component<MapErrorBoundaryProps, MapErrorB
       <div className="map-stage map-stage--failed" role="alert">
         <div className="map-failure">
           <strong>Map unavailable</strong>
-          <span>Incident evidence and place controls remain available.</span>
-          <button onClick={() => window.location.reload()} type="button">Reload map</button>
+          <span>Search, settings, and the evidence panel still work.</span>
+          <button className="button" onClick={() => window.location.reload()} type="button">Reload map</button>
         </div>
       </div>
     );

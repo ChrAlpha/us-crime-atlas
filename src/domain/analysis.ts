@@ -10,11 +10,12 @@ import type {
   EvidenceConfidence,
   EvidenceTruncation,
   EvidenceWindow,
+  GroupBreakdownItem,
   Incident,
   TrendDirection,
   UnavailableReason,
 } from '../types';
-import { CATEGORY_LABELS } from './categories';
+import { CATEGORY_LABELS, CRIME_GROUPS } from './categories';
 import { previousWindowPredatesDataset } from './evidenceWindow';
 import { circleAreaSquareKilometers, haversineDistance } from './geo';
 import { DAY_MS, isoDate } from './time';
@@ -95,6 +96,21 @@ function categoryBreakdown(incidents: Incident[]): CategoryBreakdownItem[] {
       right.count - left.count
       || CATEGORY_LABELS[left.category].localeCompare(CATEGORY_LABELS[right.category])
     ));
+}
+
+function groupBreakdown(incidents: Incident[]): GroupBreakdownItem[] {
+  return CRIME_GROUPS.map((group) => {
+    const count = incidents.filter((incident) => incident.group === group).length;
+    return { group, count, share: incidents.length > 0 ? count / incidents.length : 0 };
+  });
+}
+
+function hourlyActivity(incidents: Incident[]): number[] {
+  const hours = Array.from({ length: 24 }, () => 0);
+  for (const incident of incidents) {
+    if (incident.localHour !== null) hours[incident.localHour]! += 1;
+  }
+  return hours;
 }
 
 function dailyActivity(incidents: Incident[], window: EvidenceWindow): DailyActivity[] {
@@ -198,30 +214,9 @@ export function analyzeIncidents({
     band: evidenceBand(relativeActivity, sample),
     confidence: evidenceConfidence(sample, isTruncated(truncation)),
     categoryBreakdown: categoryBreakdown(currentIncidents),
+    groupBreakdown: groupBreakdown(currentIncidents),
     dailyActivity: dailyActivity(currentIncidents, window),
+    hourlyActivity: hourlyActivity(currentIncidents),
     latestObservedAt: currentIncidents[0]?.occurredAt ?? null,
   };
 }
-
-export const BAND_COPY: Record<EvidenceBand, { label: string; detail: string }> = {
-  lower: {
-    label: 'Lower reported activity',
-    detail: 'Weighted incident density is lower than the surrounding comparison area.',
-  },
-  similar: {
-    label: 'Similar to nearby',
-    detail: 'Weighted incident density is broadly similar to the surrounding comparison area.',
-  },
-  elevated: {
-    label: 'Elevated reported activity',
-    detail: 'Weighted incident density is higher than the surrounding comparison area.',
-  },
-  'markedly-elevated': {
-    label: 'Markedly elevated activity',
-    detail: 'Weighted incident density is at least twice the surrounding comparison area.',
-  },
-  insufficient: {
-    label: 'Not enough evidence',
-    detail: 'The sample is too small for a stable comparison with the nearby area.',
-  },
-};

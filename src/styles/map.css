@@ -1,0 +1,200 @@
+.map-stage,
+.map-stage > .map-canvas {
+  /* Beats `.maplibregl-map { position: relative }`, which loads later with the map chunk. */
+  position: absolute;
+  inset: 0;
+}
+
+.map-canvas {
+  background: var(--surface-0);
+}
+
+.map-stage--loading,
+.map-stage--failed {
+  display: grid;
+  place-items: center;
+  color: var(--ink-3);
+  background: var(--surface-0);
+  font-size: var(--text-s);
+  font-weight: 600;
+}
+
+.map-failure,
+.map-error {
+  display: grid;
+  width: min(340px, calc(100% - 32px));
+  gap: 6px;
+  padding: 18px;
+  border-radius: var(--radius-l);
+  color: var(--ink-1);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-float);
+  font-weight: 400;
+}
+
+.map-error {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.map-failure strong,
+.map-error strong {
+  font-size: var(--text-m);
+}
+
+.map-failure span,
+.map-error span {
+  color: var(--ink-2);
+  font-size: var(--text-s);
+  line-height: 1.5;
+}
+
+.map-failure button {
+  justify-self: start;
+  margin-top: 6px;
+}
+
+/* The analysis pin: dark ink in light mode, light ink in dark mode. */
+.atlas-pin {
+  width: 32px;
+  height: 42px;
+  cursor: grab;
+  filter: drop-shadow(0 2px 3px oklch(0 0 0 / 0.28));
+}
+
+.atlas-pin:active {
+  cursor: grabbing;
+}
+
+.atlas-pin__body {
+  fill: var(--ink-1);
+  stroke: var(--surface-1);
+  stroke-width: 1.5;
+}
+
+.atlas-pin__dot {
+  fill: var(--surface-1);
+}
+
+/* MapLibre controls follow the panels: above the sheet on phones, clear of the search bar. */
+.map-stage .maplibregl-ctrl-bottom-right,
+.map-stage .maplibregl-ctrl-bottom-left {
+  bottom: var(--map-inset-bottom, 0);
+}
+
+.map-stage .maplibregl-ctrl-top-right,
+.map-stage .maplibregl-ctrl-top-left {
+  top: var(--map-inset-top, 0);
+}
+
+.map-stage .maplibregl-ctrl-group {
+  overflow: hidden;
+  border-radius: var(--radius-m);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-float);
+}
+
+.map-stage .maplibregl-ctrl-group button {
+  width: 40px;
+  height: 40px;
+}
+
+.map-stage .maplibregl-ctrl-group button + button {
+  border-top-color: var(--line);
+}
+
+:root[data-theme="dark"] .map-stage .maplibregl-ctrl-icon {
+  filter: invert(1);
+}
+
+.map-stage .maplibregl-ctrl.maplibregl-ctrl-attrib,
+.map-stage .maplibregl-ctrl-attrib.maplibregl-compact-show {
+  color: var(--ink-2);
+  background: var(--surface-1);
+}
+
+.map-stage .maplibregl-ctrl-attrib a {
+  color: inherit;
+}
+
+:root[data-theme="dark"] .map-stage .maplibregl-ctrl-attrib-button {
+  filter: invert(1);
+}
+
+.atlas--compact .map-stage .maplibregl-ctrl-group {
+  display: none;
+}
+
+.locate-button {
+  position: absolute;
+  z-index: 5;
+  right: 10px;
+  bottom: 142px;
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-m);
+  color: var(--ink-1);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-float);
+}
+
+.locate-button:hover {
+  background: var(--surface-2);
+}
+
+.atlas--compact .locate-button {
+  right: 12px;
+  bottom: calc(var(--sheet-visible) + 52px);
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  transition: bottom 340ms var(--ease-out);
+}
+
+.legend {
+  position: absolute;
+  z-index: 5;
+  bottom: 12px;
+  left: 12px;
+  max-width: 280px;
+  padding: 10px 12px;
+  border-radius: var(--radius-m);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-float);
+  font-size: var(--text-xs);
+}
+
+.legend ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 650;
+}
+
+.legend p {
+  margin: 6px 0 0;
+  color: var(--ink-3);
+  line-height: 1.4;
+}
+
+/* A fully raised sheet covers the map; its controls would only peek out under the search bar. */
+.atlas--compact.is-sheet-full .maplibregl-ctrl-bottom-right,
+.atlas--compact.is-sheet-full .maplibregl-ctrl-bottom-left,
+.atlas--compact.is-sheet-full .locate-button {
+  visibility: hidden;
+}

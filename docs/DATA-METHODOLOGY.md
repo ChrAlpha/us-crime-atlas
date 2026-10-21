@@ -191,14 +191,16 @@ nearby density   = Wₒ / Aₒ
 relative activity = selected density / nearby density
 ```
 
-Display bands:
+Display bands, with the label the panel uses:
 
-- below `0.65×`: lower reported activity;
-- `0.65×` to below `1.25×`: similar to nearby;
-- `1.25×` to below `2×`: elevated reported activity;
-- `2×` or above: markedly elevated reported activity;
+- below `0.65×`: lower reported activity ("Lower");
+- `0.65×` to below `1.25×`: similar to nearby ("Similar");
+- `1.25×` to below `2×`: elevated reported activity ("Higher");
+- `2×` or above: markedly elevated reported activity ("Much higher");
 - fewer than five current selected-plus-nearby observations, or no usable nearby denominator: not enough evidence;
 - a truncated comparison query, or less than 25% of either area inside the jurisdiction: comparison withheld.
+
+The panel leads with the result in plain words, such as "62% fewer reports per km² than the surrounding area", "About as many reports per km² as the surrounding area", or "4.9× as many reports per km² as the surrounding area", and marks it on a logarithmic scale from `0.25×` to `4×` with the four bands above. It never turns the ratio into a safety score or rating.
 
 Evidence confidence is based on current selected-plus-nearby sample size and is forced to low when any upstream query reaches its record limit. A truncated comparison query withholds the comparison entirely rather than reporting an inflated ratio.
 
