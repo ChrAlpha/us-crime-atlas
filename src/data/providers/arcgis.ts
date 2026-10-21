@@ -1,184 +1,217 @@
 import { boundingBoxForRadius } from '../../domain/geo';
-import type { Incident, IncidentBatch, IncidentQuery, ProviderMeta } from '../../types';
+import { DAY_MS, localClockTimestamp, toLocalClockEpoch } from '../../domain/time';
+import type { Incident, IncidentBatch, IncidentProvider, IncidentQuery, ProviderMeta } from '../../types';
+import {
+  fetchJson,
+  fetchPages,
+  incidentsInRange,
+  isNonNull,
+  LATEST_RECORD_LOOKBACK_DAYS,
+  numberValue,
+  sharedResource,
+  textValue,
+} from './shared';
+import { LATEST_RECORD_TTL_MS } from './socrata';
 
-export const ARCGIS_QUERY_LIMIT = 2000;
+/** Every registered layer publishes `maxRecordCount: 2000`. */
+export const ARCGIS_PAGE_SIZE = 2000;
+export const ARCGIS_MAX_PAGES = 5;
 
-export interface ArcgisGeometry {
-  x?: unknown;
-  y?: unknown;
-}
+/**
+ * How a layer's epoch attributes relate to the publisher's clock.
+ *
+ * - `utc`: true UTC instants (DC, Detroit, Nashville). Converted to local wall-clock time.
+ * - `local-clock`: local wall-clock time stored as if it were UTC (Philadelphia, Denver).
+ */
+export type ArcgisEpochSemantics = 'utc' | 'local-clock';
 
-export interface ArcgisFeature<Row extends Record<string, unknown>> {
+/** Queries run with `returnGeometry=false`; coordinates come from published attributes. */
+export interface ArcgisFeature<Row extends Record<string, unknown> = Record<string, unknown>> {
   attributes?: Row;
-  geometry?: ArcgisGeometry;
 }
 
-interface ArcgisFeatureResponse<Row extends Record<string, unknown>> {
-  features?: ArcgisFeature<Row>[];
+interface ArcgisError {
+  message?: string;
+  details?: string[];
+}
+
+interface ArcgisFeatureResponse {
+  features?: unknown;
   exceededTransferLimit?: boolean;
-  error?: { message?: string; details?: string[] };
+  error?: ArcgisError;
 }
 
-interface ArcgisSearchResult {
-  title?: string;
-  url?: string;
-}
-
-interface ArcgisSearchResponse {
-  results?: ArcgisSearchResult[];
-  error?: { message?: string };
-}
-
-export interface ArcgisCatalogConfig {
-  portalUrl?: string;
-  query: string;
-  titleIncludes: string;
-  layerIndex?: number;
-}
-
-export interface ArcgisProviderConfig<Row extends Record<string, unknown>> {
+export interface ArcgisProviderConfig {
   meta: ProviderMeta;
-  serviceUrl?: string;
-  catalog?: ArcgisCatalogConfig;
+  layerUrl: string;
   dateField: string;
-  outFields: string[];
-  mapFeature(feature: ArcgisFeature<Row>): Incident | null;
+  objectIdField: string;
+  epochSemantics: ArcgisEpochSemantics;
+  outFields: readonly string[];
+  mapFeature(feature: ArcgisFeature): Incident | null;
+  pageSize?: number;
+  maxPages?: number;
 }
 
-function normalizeLayerUrl(serviceUrl: string, layerIndex: number) {
-  const normalized = serviceUrl.replace(/\/$/, '');
-  return /\/FeatureServer\/\d+$/i.test(normalized) ? normalized : `${normalized}/${layerIndex}`;
+/**
+ * Date literals are compared in the service's reference zone, which differs between layers.
+ * The predicate is padded by a day on each side; the exact range is applied client-side.
+ */
+const QUERY_PADDING_MS = DAY_MS;
+
+function sqlTimestamp(epochMs: number) {
+  return new Date(epochMs).toISOString().slice(0, 19).replace('T', ' ');
 }
 
-export function buildArcgisSearchUrl(catalog: ArcgisCatalogConfig) {
-  const url = new URL(catalog.portalUrl ?? 'https://www.arcgis.com/sharing/rest/search');
-  url.search = new URLSearchParams({ f: 'json', num: '100', q: catalog.query }).toString();
-  return url.toString();
+function arcgisErrorMessage(agency: string, error: ArcgisError) {
+  const detail = [error.message, ...(error.details ?? [])].filter(Boolean).join(': ');
+  return `${agency} query error${detail ? `: ${detail}` : ''}`;
 }
 
-export async function resolveArcgisLayerUrl(
-  config: Pick<ArcgisProviderConfig<Record<string, unknown>>, 'meta' | 'serviceUrl' | 'catalog'>,
-  signal?: AbortSignal,
-) {
-  if (config.serviceUrl) return normalizeLayerUrl(config.serviceUrl, config.catalog?.layerIndex ?? 0);
-  if (!config.catalog) throw new Error(`${config.meta.agency} has no ArcGIS service configuration`);
-  const response = await fetch(buildArcgisSearchUrl(config.catalog), {
-    headers: { Accept: 'application/json' },
-    signal: signal ?? null,
-  });
-  if (!response.ok) throw new Error(`${config.meta.agency} catalog returned HTTP ${response.status}`);
-  const payload = (await response.json()) as ArcgisSearchResponse;
-  if (payload.error) throw new Error(`${config.meta.agency} catalog error: ${payload.error.message ?? 'unknown error'}`);
-  const needle = config.catalog.titleIncludes.toLocaleLowerCase();
-  const result = (payload.results ?? []).find(
-    (candidate) => candidate.title?.toLocaleLowerCase().includes(needle) && candidate.url,
-  );
-  if (!result?.url) throw new Error(`${config.meta.agency} catalog did not expose the expected feature service`);
-  return normalizeLayerUrl(result.url, config.catalog.layerIndex ?? 0);
-}
-
-function sqlTimestamp(date: Date) {
-  return date.toISOString().slice(0, 19).replace('T', ' ');
-}
-
-function arcgisDateWhere(dateField: string, query: IncidentQuery) {
-  const start = new Date(query.now.getTime() - query.windowDays * 2 * 86_400_000);
-  return `${dateField} >= TIMESTAMP '${sqlTimestamp(start)}' AND ${dateField} <= TIMESTAMP '${sqlTimestamp(query.now)}'`;
-}
-
-export function buildArcgisQueryUrl<Row extends Record<string, unknown>>(
-  config: ArcgisProviderConfig<Row>,
-  layerUrl: string,
-  query: IncidentQuery,
-) {
+function queryFilter(config: ArcgisProviderConfig, query: IncidentQuery) {
   const box = boundingBoxForRadius(query.center, query.radiusMeters);
-  const geometry = JSON.stringify({
-    xmin: box.west,
-    ymin: box.south,
-    xmax: box.east,
-    ymax: box.north,
-    spatialReference: { wkid: 4326 },
-  });
-  const params = new URLSearchParams({
+  const start = sqlTimestamp(query.startEpochMs - QUERY_PADDING_MS);
+  const end = sqlTimestamp(query.endEpochMs + QUERY_PADDING_MS);
+  return {
     f: 'json',
-    where: arcgisDateWhere(config.dateField, query),
-    outFields: config.outFields.join(','),
-    returnGeometry: 'true',
-    geometry,
+    where: `${config.dateField} >= TIMESTAMP '${start}' AND ${config.dateField} < TIMESTAMP '${end}'`,
+    geometry: JSON.stringify({
+      xmin: box.west,
+      ymin: box.south,
+      xmax: box.east,
+      ymax: box.north,
+      spatialReference: { wkid: 4326 },
+    }),
     geometryType: 'esriGeometryEnvelope',
     inSR: '4326',
-    outSR: '4326',
     spatialRel: 'esriSpatialRelIntersects',
-    orderByFields: `${config.dateField} DESC`,
-    resultRecordCount: String(ARCGIS_QUERY_LIMIT),
-  });
-  return `${layerUrl}/query?${params.toString()}`;
+  };
 }
 
-export function createArcgisProvider<Row extends Record<string, unknown>>(
-  config: ArcgisProviderConfig<Row>,
-) {
-  let layerPromise: Promise<string> | null = null;
-  const layerUrl = (signal?: AbortSignal) => {
-    if (!layerPromise) {
-      layerPromise = resolveArcgisLayerUrl(
-        config as ArcgisProviderConfig<Record<string, unknown>>,
-        signal,
-      ).catch((error) => {
-        layerPromise = null;
-        throw error;
-      });
-    }
-    return layerPromise;
-  };
+export function buildArcgisCountUrl(config: ArcgisProviderConfig, query: IncidentQuery): string {
+  const params = new URLSearchParams({ ...queryFilter(config, query), returnCountOnly: 'true' });
+  return `${config.layerUrl}/query?${params.toString()}`;
+}
+
+export function parseArcgisCount(payload: unknown, agency: string): number {
+  const response = payload as { count?: unknown; error?: ArcgisError };
+  if (response.error) throw new Error(arcgisErrorMessage(agency, response.error));
+  const count = numberValue(response.count);
+  if (count === null) throw new Error(`${agency} returned an unexpected count response`);
+  return count;
+}
+
+export function buildArcgisQueryUrl(
+  config: ArcgisProviderConfig,
+  query: IncidentQuery,
+  page: { offset: number; limit: number } = { offset: 0, limit: config.pageSize ?? ARCGIS_PAGE_SIZE },
+): string {
+  const params = new URLSearchParams({
+    ...queryFilter(config, query),
+    outFields: config.outFields.join(','),
+    // Every registered layer publishes coordinate attributes; skipping feature geometry
+    // roughly halves response time on the slower services.
+    returnGeometry: 'false',
+    orderByFields: `${config.dateField} DESC,${config.objectIdField} ASC`,
+    resultOffset: String(page.offset),
+    resultRecordCount: String(page.limit),
+  });
+  return `${config.layerUrl}/query?${params.toString()}`;
+}
+
+export function buildArcgisLatestUrl(config: ArcgisProviderConfig, nowUtcEpochMs: number): string {
+  const params = new URLSearchParams({
+    f: 'json',
+    where: [
+      `${config.dateField} >= TIMESTAMP '${sqlTimestamp(nowUtcEpochMs - LATEST_RECORD_LOOKBACK_DAYS * DAY_MS)}'`,
+      `${config.dateField} <= TIMESTAMP '${sqlTimestamp(nowUtcEpochMs + DAY_MS)}'`,
+    ].join(' AND '),
+    outStatistics: JSON.stringify([
+      { statisticType: 'max', onStatisticField: config.dateField, outStatisticFieldName: 'latest_record' },
+    ]),
+  });
+  return `${config.layerUrl}/query?${params.toString()}`;
+}
+
+/** Converts a layer epoch into the provider's local-clock frame. */
+export function layerEpochToLocalClock(epochMs: number, semantics: ArcgisEpochSemantics, timeZone: string): number {
+  return semantics === 'utc' ? toLocalClockEpoch(epochMs, timeZone) : epochMs;
+}
+
+export function parseArcgisLatest(payload: unknown, config: ArcgisProviderConfig): number | null {
+  const response = payload as ArcgisFeatureResponse;
+  if (response.error) throw new Error(arcgisErrorMessage(config.meta.agency, response.error));
+  if (!Array.isArray(response.features)) {
+    throw new Error(`${config.meta.agency} returned an unexpected latest-record response`);
+  }
+  const attributes = (response.features[0] as ArcgisFeature | undefined)?.attributes;
+  const key = attributes && Object.keys(attributes).find((name) => name.toLowerCase() === 'latest_record');
+  if (!attributes || !key) throw new Error(`${config.meta.agency} returned no latest-record statistic`);
+  const value = attributes[key];
+  // A null maximum means the lookback period has no rows at all.
+  if (value === null) return null;
+  const epoch = typeof value === 'number' && Number.isFinite(value) ? value : null;
+  if (epoch === null) throw new Error(`${config.meta.agency} returned an unreadable latest record date`);
+  return layerEpochToLocalClock(epoch, config.epochSemantics, config.meta.timeZone);
+}
+
+export function createArcgisProvider(config: ArcgisProviderConfig): IncidentProvider {
+  const { meta } = config;
+  const pageSize = config.pageSize ?? ARCGIS_PAGE_SIZE;
+  const maxPages = config.maxPages ?? ARCGIS_MAX_PAGES;
+
+  const latestRecord = sharedResource(async (signal) => {
+    const payload = await fetchJson(buildArcgisLatestUrl(config, Date.now()), meta.agency, signal);
+    return parseArcgisLatest(payload, config);
+  }, { ttlMs: LATEST_RECORD_TTL_MS });
 
   return {
-    meta: config.meta,
+    meta,
+    fetchLatestRecordEpoch: latestRecord,
+    resetCache: latestRecord.reset,
     async fetchIncidents(query: IncidentQuery): Promise<IncidentBatch> {
-      const resolvedLayerUrl = await layerUrl(query.signal);
-      const requestUrl = buildArcgisQueryUrl(config, resolvedLayerUrl, query);
-      const response = await fetch(requestUrl, {
-        headers: { Accept: 'application/json' },
-        signal: query.signal ?? null,
-      });
-      if (!response.ok) throw new Error(`${config.meta.agency} returned HTTP ${response.status}`);
-      const payload = (await response.json()) as ArcgisFeatureResponse<Row>;
-      if (payload.error) {
-        const detail = [payload.error.message, ...(payload.error.details ?? [])].filter(Boolean).join(': ');
-        throw new Error(`${config.meta.agency} query error${detail ? `: ${detail}` : ''}`);
-      }
-      if (!Array.isArray(payload.features)) {
-        throw new Error(`${config.meta.agency} returned an unexpected response`);
-      }
-      const incidents = payload.features
-        .map((feature) => config.mapFeature(feature))
-        .filter((incident): incident is Incident => incident !== null);
+      const requestUrls: string[] = [];
+      const { rows, truncated } = await fetchPages(async (offset) => {
+        const url = buildArcgisQueryUrl(config, query, { offset, limit: pageSize });
+        requestUrls.push(url);
+        const payload = await fetchJson(url, meta.agency, query.signal) as ArcgisFeatureResponse;
+        if (payload.error) throw new Error(arcgisErrorMessage(meta.agency, payload.error));
+        if (!Array.isArray(payload.features)) throw new Error(`${meta.agency} returned an unexpected response`);
+        return { rows: payload.features as ArcgisFeature[], hasMore: payload.exceededTransferLimit === true };
+      }, pageSize, maxPages, async () => (
+        parseArcgisCount(await fetchJson(buildArcgisCountUrl(config, query), meta.agency, query.signal), meta.agency)
+      ));
+      const incidents = rows.map((feature) => config.mapFeature(feature)).filter(isNonNull);
       return {
-        incidents,
-        provider: config.meta,
-        fetchedAt: new Date().toISOString(),
-        queryLimit: ARCGIS_QUERY_LIMIT,
-        truncated: payload.exceededTransferLimit === true || payload.features.length >= ARCGIS_QUERY_LIMIT,
-        requestUrl,
+        incidents: incidentsInRange(incidents, query),
+        recordLimit: pageSize * maxPages,
+        truncated,
+        requestUrls,
       };
     },
   };
 }
 
-export function arcgisNumber(value: unknown) {
-  const number = typeof value === 'number' ? value : Number(value);
-  return Number.isFinite(number) ? number : null;
+/** Case-insensitive attribute lookup; the first present name wins. */
+export function attribute(row: Record<string, unknown>, ...names: readonly string[]): unknown {
+  for (const name of names) {
+    if (name in row) return row[name];
+    const actual = Object.keys(row).find((key) => key.toLowerCase() === name.toLowerCase());
+    if (actual) return row[actual];
+  }
+  return undefined;
 }
 
-export function arcgisText(value: unknown, fallback = '') {
-  if (typeof value === 'string' && value.trim()) return value.trim();
-  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
-  return fallback;
-}
+export const arcgisNumber = numberValue;
+export const arcgisText = textValue;
 
-export function arcgisTimestamp(value: unknown) {
-  const epoch = arcgisNumber(value);
-  if (epoch === null) return null;
-  const date = new Date(epoch);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+/** A layer epoch as a zone-free local wall-clock timestamp. */
+export function arcgisLocalTimestamp(
+  value: unknown,
+  semantics: ArcgisEpochSemantics,
+  timeZone: string,
+): string | null {
+  const epoch = numberValue(value);
+  if (epoch === null || Number.isNaN(new Date(epoch).getTime())) return null;
+  return localClockTimestamp(layerEpochToLocalClock(epoch, semantics, timeZone));
 }

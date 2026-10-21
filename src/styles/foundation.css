@@ -428,3 +428,39 @@ button:disabled {
   justify-content: space-between;
   gap: 12px;
 }
+
+.eyebrow {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--ink-tertiary);
+  font-size: 10px;
+  font-weight: 720;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.search-panel h1,
+.evidence-header h2,
+.source-dialog h2 {
+  margin: 0;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.search-panel h1 {
+  max-width: 245px;
+  overflow: hidden;
+  font-size: 23px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-panel__heading p,
+.evidence-header p {
+  margin: 5px 0 0;
+  overflow: hidden;
+  color: var(--ink-secondary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

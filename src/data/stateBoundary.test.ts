@@ -100,4 +100,37 @@ describe('state boundary lookup', () => {
     expect(findStateForPoint([0.5, 0], malformed)).toBeNull();
     expect(findStateForPoint([0, 0], malformed)).toBeNull();
   });
+
+  it('rejects unusable points and collections before scanning features', () => {
+    expect(findStateForPoint([Number.NaN, 31], boundaries)).toBeNull();
+    expect(findStateForPoint([-101, Number.POSITIVE_INFINITY], boundaries)).toBeNull();
+    expect(findStateForPoint([-101, 91], boundaries)).toBeNull();
+    expect(findStateForPoint([-101, -91], boundaries)).toBeNull();
+    expect(findStateForPoint([-101, 31], null as unknown as StateBoundaryCollection)).toBeNull();
+    expect(findStateForPoint([-101, 31], { type: 'FeatureCollection', features: 'none' } as unknown as StateBoundaryCollection)).toBeNull();
+  });
+
+  it('skips features with unusable identities, coordinates or rings', () => {
+    const square = [[[-102, 30], [-98, 30], [-98, 34], [-102, 34], [-102, 30]]];
+    const feature = (properties: unknown, coordinates: unknown, type = 'Polygon') => ({
+      type: 'Feature',
+      properties,
+      geometry: { type, coordinates },
+    });
+    const collection = {
+      type: 'FeatureCollection',
+      features: [
+        feature({ code: 7, name: 'Numeric code' }, square),
+        feature({ code: 'NN', name: 12 }, square),
+        feature({ code: '  ', name: 'Blank code' }, square),
+        feature({ code: 'NA', name: '  ' }, square),
+        feature({ code: 'NC', name: 'No coordinates' }, 'not-an-array'),
+        feature({ code: 'NR', name: 'Rings not arrays' }, ['ring']),
+        feature({ code: 'MP', name: 'Bad multipolygon' }, ['polygon'], 'MultiPolygon'),
+        feature({ code: 'ZA', name: 'Zero area' }, [[[-102, 30], [-98, 30], [-100, 30], [-102, 30]]]),
+      ],
+    } as unknown as StateBoundaryCollection;
+    expect(findStateForPoint([-100, 32], collection)).toBeNull();
+    expect(findStateForPoint([-100, 30], collection)).toBeNull();
+  });
 });

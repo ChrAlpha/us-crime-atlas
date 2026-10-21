@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { philadelphiaProvider } from './providers/arcgisCities';
-import { dallasProvider } from './providers/nationwide';
+import { dallasProvider } from './providers/socrataCities';
 import type { FbiStateEstimate, FbiStateSnapshot } from './fbiState.types';
 import type { StateBoundaryCollection } from './stateBoundary.types';
 import { resolveCoverageForPoint } from './coverage';

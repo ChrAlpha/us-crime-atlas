@@ -1,6 +1,7 @@
-@import './styles/part-1.css';
-@import './styles/part-2.css';
-@import './styles/part-3.css';
-@import './styles/part-4.css';
-@import './styles/part-5.css';
-@import './styles/part-6.css';
+/* Order matters: later files refine earlier ones. */
+@import './styles/foundation.css';
+@import './styles/search-panel.css';
+@import './styles/evidence-panel.css';
+@import './styles/states-and-dialog.css';
+@import './styles/responsive.css';
+@import './styles/refinements.css';

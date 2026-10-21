@@ -125,4 +125,28 @@ describe('FBI state estimate snapshot', () => {
 
     expect(() => parseFbiStateEstimates({ rows: validRows() }, 2024)).toThrow(/array/i);
   });
+
+  it('accepts numeric years and normalizes blank caveats to null', () => {
+    const rows = validRows().map((row, index) => ({
+      ...row,
+      year: 2024,
+      caveats: index === 1 ? '   ' : row.caveats,
+    }));
+    const snapshot = parseFbiStateEstimates(rows, 2024);
+    expect(snapshot.states[1]?.caveats).toBeNull();
+    expect(snapshot.states[0]?.caveats).toBe('Estimated from incomplete reporting.');
+  });
+
+  it('rejects non-object rows, invalid years and non-text caveats', () => {
+    expect(() => parseFbiStateEstimates([...validRows(), null], 2024)).toThrow('row 52 is not an object');
+    expect(() => parseFbiStateEstimates([...validRows(), ['AL']], 2024)).toThrow('row 52 is not an object');
+    expect(() => parseFbiStateEstimates(validRows(), 1978)).toThrow('Invalid FBI estimate year 1978');
+    expect(() => parseFbiStateEstimates(validRows(), 2024.5)).toThrow('Invalid FBI estimate year');
+    const rows = validRows();
+    rows[2] = { ...rows[2], year: -2024 };
+    expect(() => parseFbiStateEstimates(rows, 2024)).toThrow('row 3 has an invalid year');
+    const caveatRows = validRows();
+    caveatRows[3] = { ...caveatRows[3], caveats: 42 };
+    expect(() => parseFbiStateEstimates(caveatRows, 2024)).toThrow('has an invalid caveats');
+  });
 });

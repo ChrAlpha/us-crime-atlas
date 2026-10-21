@@ -1,13 +1,54 @@
-import type { Page } from '@playwright/test';
+import type { Page, Route } from '@playwright/test';
 
+const DAY_MS = 86_400_000;
+
+/**
+ * A source timestamp `daysAgo` calendar days before today. Times sit mid-day so the
+ * browser-zone/UTC date difference never moves a fixture across a window boundary.
+ */
 function sourceDate(daysAgo: number, hour = 12) {
-  const date = new Date(Date.now() - daysAgo * 86_400_000);
-  const day = date.toISOString().slice(0, 10);
+  const day = new Date(Date.now() - daysAgo * DAY_MS).toISOString().slice(0, 10);
+  const clock = `${String(hour).padStart(2, '0')}:15:00`;
   return {
     date: `${day}T00:00:00.000`,
-    time: `${String(hour).padStart(2, '0')}:15:00`,
-    timestamp: `${day}T${String(hour).padStart(2, '0')}:15:00.000`,
-    epoch: Date.parse(`${day}T${String(hour).padStart(2, '0')}:15:00.000Z`),
+    textDate: `${day} 00:00:00.0000000`,
+    time: clock,
+    shortTime: clock.slice(0, 5),
+    timestamp: `${day}T${clock}.000`,
+    epoch: Date.parse(`${day}T${clock}.000Z`),
+  };
+}
+
+function json(route: Route, body: unknown) {
+  return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+}
+
+/**
+ * Answers the three Socrata request shapes the atlas makes: the latest-record aggregate,
+ * the count aggregate and paged row queries. Rows are returned unfiltered; the provider's
+ * client-side range and Haversine filters are authoritative.
+ */
+function socrataHandler(rows: unknown[], latestRecord: string | null, reportedTotal = rows.length) {
+  return (route: Route) => {
+    const url = new URL(route.request().url());
+    const select = url.searchParams.get('$select') ?? '';
+    if (select.startsWith('max(')) return json(route, latestRecord ? [{ latest_record: latestRecord }] : [{}]);
+    if (select.startsWith('count(')) return json(route, [{ total: String(reportedTotal) }]);
+    return json(route, Number(url.searchParams.get('$offset') ?? 0) > 0 ? [] : rows);
+  };
+}
+
+function arcgisHandler(features: unknown[], latestEpoch: number | null) {
+  return (route: Route) => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.has('outStatistics')) {
+      return json(route, { features: [{ attributes: { latest_record: latestEpoch } }] });
+    }
+    if (url.searchParams.get('returnCountOnly') === 'true') return json(route, { count: features.length });
+    return json(route, {
+      exceededTransferLimit: false,
+      features: Number(url.searchParams.get('resultOffset') ?? 0) > 0 ? [] : features,
+    });
   };
 }
 
@@ -36,26 +77,29 @@ const nycPoint = (
   };
 };
 
-export const nycFixture = [
-  nycPoint('ny-1', 1, 'FELONY ASSAULT', 'AGGRAVATED ASSAULT', -73.985, 40.758, 23),
-  nycPoint('ny-2', 2, 'ROBBERY', 'ROBBERY, OPEN AREA', -73.98, 40.758, 1),
-  nycPoint('ny-3', 3, 'PETIT LARCENY', 'PICKPOCKET', -73.988, 40.754, 14),
-  nycPoint('ny-4', 4, 'GRAND LARCENY OF MOTOR VEHICLE', 'AUTO THEFT', -73.99, 40.76, 18),
-  nycPoint('ny-5', 5, 'BURGLARY', 'COMMERCIAL BURGLARY', -73.981, 40.762, 3),
-  nycPoint('ny-prev-1', 34, 'PETIT LARCENY', 'LARCENY', -73.984, 40.758),
-  nycPoint('ny-prev-2', 38, 'ROBBERY', 'ROBBERY', -73.987, 40.756),
-  ...Array.from({ length: 12 }, (_, index) =>
-    nycPoint(
-      `ny-outer-${index}`,
-      2 + (index % 8),
-      index % 3 === 0 ? 'FELONY ASSAULT' : 'PETIT LARCENY',
-      index % 3 === 0 ? 'ASSAULT' : 'LARCENY',
-      -73.963 + index * 0.0004,
-      40.758 + (index % 2) * 0.003,
-      10 + (index % 12),
+/** NYC rows `lag` days behind today, as for a quarterly publisher. */
+export function nycFixture(lag = 0) {
+  return [
+    nycPoint('ny-1', lag + 1, 'FELONY ASSAULT', 'AGGRAVATED ASSAULT', -73.985, 40.758, 23),
+    nycPoint('ny-2', lag + 2, 'ROBBERY', 'ROBBERY, OPEN AREA', -73.98, 40.758, 1),
+    nycPoint('ny-3', lag + 3, 'PETIT LARCENY', 'PICKPOCKET', -73.988, 40.754, 14),
+    nycPoint('ny-4', lag + 4, 'GRAND LARCENY OF MOTOR VEHICLE', 'AUTO THEFT', -73.99, 40.76, 18),
+    nycPoint('ny-5', lag + 5, 'BURGLARY', 'COMMERCIAL BURGLARY', -73.981, 40.762, 3),
+    nycPoint('ny-prev-1', lag + 34, 'PETIT LARCENY', 'LARCENY', -73.984, 40.758),
+    nycPoint('ny-prev-2', lag + 38, 'ROBBERY', 'ROBBERY', -73.987, 40.756),
+    ...Array.from({ length: 12 }, (_, index) =>
+      nycPoint(
+        `ny-outer-${index}`,
+        lag + 2 + (index % 8),
+        index % 3 === 0 ? 'FELONY ASSAULT' : 'PETIT LARCENY',
+        index % 3 === 0 ? 'ASSAULT' : 'LARCENY',
+        -73.963 + index * 0.0004,
+        40.758 + (index % 2) * 0.003,
+        10 + (index % 12),
+      ),
     ),
-  ),
-];
+  ];
+}
 
 const chicagoPoint = (id: string, daysAgo: number, type: string, longitude: number, latitude: number) => {
   const date = sourceDate(daysAgo, 22);
@@ -82,6 +126,32 @@ export const chicagoFixture = [
   ),
 ];
 
+const dallasPoint = (id: string, daysAgo: number, offense: string, longitude: number, latitude: number) => {
+  const date = sourceDate(daysAgo, 21);
+  return {
+    servnumid: id,
+    incidentnum: `${id}-case`,
+    date1: date.textDate,
+    time1: date.shortTime,
+    nibrs_crime: offense,
+    offincident: offense,
+    incident_address: '1500 MAIN ST',
+    division: 'CENTRAL',
+    geocoded_column: { type: 'Point', coordinates: [longitude, latitude] },
+  };
+};
+
+/** Dallas settles two days, so the newest fixture rows sit three or more days back. */
+export const dallasFixture = [
+  dallasPoint('dal-1', 3, 'AGG ASSAULT - NFV', -96.797, 32.7767),
+  dallasPoint('dal-2', 4, 'THEFT OF PROPERTY', -96.799, 32.778),
+  dallasPoint('dal-3', 5, 'BURGLARY OF VEHICLE', -96.795, 32.775),
+  dallasPoint('dal-prev', 40, 'ROBBERY OF INDIVIDUAL', -96.798, 32.777),
+  ...Array.from({ length: 6 }, (_, index) =>
+    dallasPoint(`dal-outer-${index}`, 3 + index, 'THEFT OF PROPERTY', -96.775 + index * 0.0004, 32.7767),
+  ),
+];
+
 const dcFeature = (
   id: number,
   daysAgo: number,
@@ -93,8 +163,8 @@ const dcFeature = (
   attributes: {
     CCN: `DC-${id}`,
     OBJECTID: id,
-    START_DATE: sourceDate(daysAgo, 21).epoch,
-    REPORT_DAT: sourceDate(daysAgo, 22).epoch,
+    START_DATE: sourceDate(daysAgo, 17).epoch,
+    REPORT_DAT: sourceDate(daysAgo, 18).epoch,
     OFFENSE: offense,
     METHOD: method,
     BLOCK: '100 BLOCK PENNSYLVANIA AVE NW',
@@ -102,97 +172,66 @@ const dcFeature = (
     LATITUDE: latitude,
     LONGITUDE: longitude,
   },
-  geometry: { x: longitude, y: latitude },
 });
 
-export const dcFixture = {
-  exceededTransferLimit: false,
-  features: [
-    dcFeature(1, 1, 'ROBBERY', -77.0367, 38.8894, 'GUN'),
-    dcFeature(2, 2, 'ASSAULT W/DANGEROUS WEAPON', -77.034, 38.891),
-    dcFeature(3, 3, 'THEFT F/AUTO', -77.039, 38.887),
-    dcFeature(4, 4, 'MOTOR VEHICLE THEFT', -77.032, 38.888),
-    dcFeature(20, 35, 'ROBBERY', -77.036, 38.889),
-    dcFeature(30, 2, 'THEFT/OTHER', -77.015, 38.89),
-    dcFeature(31, 3, 'THEFT/OTHER', -77.014, 38.891),
-    dcFeature(32, 4, 'ASSAULT W/DANGEROUS WEAPON', -77.013, 38.889),
-    dcFeature(33, 5, 'THEFT/OTHER', -77.012, 38.892),
-  ],
-};
+/** DC settles two days, so the newest fixture rows sit three or more days back. */
+export const dcFixture = [
+  dcFeature(1, 3, 'ROBBERY', -77.0367, 38.8894, 'GUN'),
+  dcFeature(2, 4, 'ASSAULT W/DANGEROUS WEAPON', -77.034, 38.891),
+  dcFeature(3, 5, 'THEFT F/AUTO', -77.039, 38.887),
+  dcFeature(4, 6, 'MOTOR VEHICLE THEFT', -77.032, 38.888),
+  dcFeature(20, 37, 'ROBBERY', -77.036, 38.889),
+  dcFeature(30, 4, 'THEFT/OTHER', -77.015, 38.89),
+  dcFeature(31, 5, 'THEFT/OTHER', -77.014, 38.891),
+  dcFeature(32, 6, 'ASSAULT W/DANGEROUS WEAPON', -77.013, 38.889),
+  dcFeature(33, 7, 'THEFT/OTHER', -77.012, 38.892),
+];
 
-const adaptiveMetadata = (fields: string[]) => ({
-  columns: fields.map((fieldName) => ({ fieldName })),
-});
+const adaptiveMetadata = (fields: string[]) => ({ columns: fields.map((fieldName) => ({ fieldName })) });
 
-function emptyAdaptiveSource(page: Page, datasetId: string, fields: string[]) {
-  return Promise.all([
-    page.route(`**/api/views/${datasetId}`, (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(adaptiveMetadata(fields)),
-      }),
-    ),
-    page.route(`**/resource/${datasetId}.json?*`, (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
-    ),
-  ]);
+async function adaptiveSource(page: Page, datasetId: string, fields: string[], rows: unknown[] = []) {
+  await page.route(`**/api/views/${datasetId}`, (route) => json(route, adaptiveMetadata(fields)));
+  await page.route(`**/resource/${datasetId}.json?*`, socrataHandler(rows, rows.length > 0 ? sourceDate(0).timestamp : null));
 }
 
-export async function mockOfficialSources(page: Page, mode: 'success' | 'error' = 'success') {
+export interface MockOptions {
+  mode?: 'success' | 'error';
+  /** Days the NYC feed lags behind today (NYPD publishes quarterly). */
+  nycLagDays?: number;
+  /** Row count the NYC count query reports; above the record budget it forces truncation. */
+  nycReportedTotal?: number;
+}
+
+export async function mockOfficialSources(page: Page, options: MockOptions | 'success' | 'error' = {}) {
+  const { mode = 'success', nycLagDays = 0, nycReportedTotal } = typeof options === 'string'
+    ? { mode: options }
+    : options;
+  const today = sourceDate(0).timestamp;
+  const nycRows = nycFixture(nycLagDays);
+
   await page.route('**/resource/5uac-w243.json?*', async (route) => {
     if (mode === 'error') {
       await route.fulfill({ status: 503, body: 'Service unavailable' });
       return;
     }
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(nycFixture) });
+    await socrataHandler(nycRows, sourceDate(nycLagDays).timestamp, nycReportedTotal)(route);
   });
-  await page.route('**/resource/ijzp-q8t2.json?*', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(chicagoFixture) }),
-  );
-  await page.route('**/resource/wg3w-h783.json?*', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
-  );
+  await page.route('**/resource/ijzp-q8t2.json?*', socrataHandler(chicagoFixture, today));
+  await page.route('**/resource/wg3w-h783.json?*', socrataHandler([], null));
 
-  await emptyAdaptiveSource(page, 'k7nn-b2ep', [
-    'caseno',
-    'uniquenibrno',
-    'date_occ',
-    'time_occ',
-    'area_name',
-    'nibr_description',
-    'crime_against',
-    'premis_desc',
-    'hndrdth_loc_chk',
-    'hndrdth_lat',
-    'hndrdth_lon',
+  await adaptiveSource(page, 'k7nn-b2ep', [
+    'caseno', 'uniquenibrno', 'date_occ', 'time_occ', 'area_name', 'nibr_description',
+    'crime_against', 'premis_desc', 'hndrdth_loc_chk', 'hndrdth_lat', 'hndrdth_lon',
   ]);
-  await emptyAdaptiveSource(page, 'tazs-3rd5', [
-    'report_number',
-    'report_date_time',
-    'offense_id',
-    'offense_date',
-    'nibrs_group_a_b',
-    'nibrs_crime_against_category',
-    'offense_sub_category',
-    'block_address',
-    'latitude',
-    'longitude',
-    'precinct',
-    'neighborhood',
+  await adaptiveSource(page, 'tazs-3rd5', [
+    'report_number', 'report_date_time', 'offense_id', 'offense_date', 'nibrs_group_a_b',
+    'nibrs_crime_against_category', 'offense_sub_category', 'block_address', 'latitude',
+    'longitude', 'precinct', 'neighborhood',
   ]);
-  await emptyAdaptiveSource(page, 'qv6i-rri7', [
-    'servnumid',
-    'incidentnum',
-    'date1',
-    'time1',
-    'nibrs_crime',
-    'nibrs_crime_category',
-    'offincident',
-    'incident_address',
-    'division',
-    'geocoded_column',
-  ]);
+  await adaptiveSource(page, 'qv6i-rri7', [
+    'servnumid', 'incidentnum', 'date1', 'time1', 'nibrs_crime', 'nibrs_crime_category',
+    'offincident', 'incident_address', 'division', 'geocoded_column',
+  ], dallasFixture);
 
   for (const path of [
     'INCIDENTS_PART1_PART2/FeatureServer/0',
@@ -200,16 +239,9 @@ export async function mockOfficialSources(page: Page, mode: 'success' | 'error' 
     'ODC_CRIME_OFFENSES_P/FeatureServer/324',
     'Metro_Nashville_Police_Department_Incidents_view/FeatureServer/0',
   ]) {
-    await page.route(`**/${path}/query?*`, (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: '{"features":[]}' }),
-    );
+    await page.route(`**/${path}/query?*`, arcgisHandler([], null));
   }
+  await page.route('**/FEEDS/MPD/FeatureServer/41/query?*', arcgisHandler(dcFixture, Date.now()));
 
-  await page.route('**/FEEDS/MPD/FeatureServer/41/query?*', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(dcFixture) }),
-  );
-
-  await page.route('**/nominatim.openstreetmap.org/**', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
-  );
+  await page.route('**/nominatim.openstreetmap.org/**', (route) => json(route, []));
 }

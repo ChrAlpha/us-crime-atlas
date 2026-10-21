@@ -1,4 +1,5 @@
 import { useEffect, useRef, type MouseEvent as ReactMouseEvent } from 'react';
+import { JURISDICTION_SOURCE } from '../data/jurisdictions';
 import { providerMetadata } from '../data/providers';
 import { CATEGORY_LABELS, CATEGORY_SEVERITY } from '../domain/categories';
 import type { CrimeCategory, ProviderMeta } from '../types';
@@ -176,6 +177,9 @@ export function SourceDialog({ open, activeProvider, onClose }: SourceDialogProp
                 <p>
                   Exact Haversine distance assigns reports to the selected radius or the surrounding annulus from 1×
                   to 3× that radius. The current window is also compared with the immediately preceding equal window.
+                  Both windows end at the publisher's newest complete day rather than today, so publication delay is
+                  never counted as quiet days. Coverage follows each city's legal limits ({JURISDICTION_SOURCE.source}),
+                  and areas outside them, where a city feed has no records, are left out of every density.
                 </p>
               </div>
             </div>
@@ -185,15 +189,15 @@ export function SourceDialog({ open, activeProvider, onClose }: SourceDialogProp
             <h3>How relative activity is calculated</h3>
             <div className="formula-card">
               <div
-                aria-label="Relative activity equals selected weighted incidents per selected square kilometer divided by nearby weighted incidents per annulus square kilometer"
+                aria-label="Relative activity equals selected weighted incidents per covered selected square kilometer divided by nearby weighted incidents per covered annulus square kilometer"
                 className="formula-expression"
                 role="img"
               >
                 <code>relative activity</code>
                 <span aria-hidden="true">=</span>
                 <span className="formula-fraction">
-                  <code>selected weighted incidents / selected km²</code>
-                  <code>nearby weighted incidents / annulus km²</code>
+                  <code>selected weighted incidents / covered selected km²</code>
+                  <code>nearby weighted incidents / covered annulus km²</code>
                 </span>
               </div>
               <p>

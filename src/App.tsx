@@ -1,8 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { findProviderForPoint } from './data/providers';
-import { parseUrlState, serializeUrlState } from './domain/urlState';
+import { droppedPin, parseUrlState, serializeUrlState } from './domain/urlState';
 import { useIncidentAnalysis } from './hooks/useIncidentAnalysis';
-import type { AtlasState, Coordinates, CrimeGroup, Incident, SelectedPlace } from './types';
+import type { AtlasState, Coordinates, CrimeGroup, Incident, RadiusMeters, SelectedPlace, WindowDays } from './types';
 import { EvidencePanel } from './components/EvidencePanel';
 import { AtlasIcon, CloseIcon, InfoIcon, MoonIcon, SunIcon } from './components/Icons';
 import { MapErrorBoundary } from './components/MapErrorBoundary';
@@ -11,23 +11,21 @@ import { SourceDialog } from './components/SourceDialog';
 
 type Theme = 'light' | 'dark';
 
+export const THEME_STORAGE_KEY = 'us-crime-atlas-theme';
+export const MIN_GROUP_MESSAGE = 'At least one published incident group must remain active.';
+export const TOAST_DURATION_MS = 6_000;
+/** Stable while analysis is pending, so the map's data effect does not re-run every render. */
+const NO_INCIDENTS: Incident[] = [];
+
 const AtlasMap = lazy(async () => {
   const module = await import('./components/AtlasMap');
   return { default: module.AtlasMap };
 });
 
 function initialTheme(): Theme {
-  const stored = window.localStorage.getItem('us-crime-atlas-theme');
+  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
   if (stored === 'light' || stored === 'dark') return stored;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-}
-
-function droppedPin(coordinates: Coordinates): SelectedPlace {
-  return {
-    label: 'Dropped pin',
-    detail: `${coordinates[1].toFixed(5)}, ${coordinates[0].toFixed(5)}`,
-    coordinates,
-  };
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
 export default function App() {
@@ -35,7 +33,11 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [locating, setLocating] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  // The id restarts the dismiss timer when the same message is shown again.
+  const [toast, setToast] = useState<{ id: number; message: string } | null>(null);
+  const showToast = useCallback((message: string) => {
+    setToast((current) => ({ id: (current?.id ?? 0) + 1, message }));
+  }, []);
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
 
   const provider = useMemo(
@@ -44,7 +46,7 @@ export default function App() {
   );
   const incidentState = useIncidentAnalysis({
     provider,
-    place: atlasState.place,
+    center: atlasState.place.coordinates,
     radiusMeters: atlasState.radiusMeters,
     windowDays: atlasState.windowDays,
     activeGroups: atlasState.activeGroups,
@@ -71,14 +73,19 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    window.localStorage.setItem('us-crime-atlas-theme', theme);
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
   }, [theme]);
 
   useEffect(() => {
-    const params = new URLSearchParams(serializeUrlState(atlasState).slice(1));
-    if (new URLSearchParams(window.location.search).get('e2e') === '1') params.set('e2e', '1');
-    window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+    const search = serializeUrlState(atlasState, window.location.search);
+    window.history.replaceState(null, '', `${window.location.pathname}${search}`);
   }, [atlasState]);
+
+  useEffect(() => {
+    if (!toast) return undefined;
+    const timer = window.setTimeout(() => setToast(null), TOAST_DURATION_MS);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
 
   useEffect(() => {
     if (!selectedIncidentId) return;
@@ -95,31 +102,31 @@ export default function App() {
     choosePlace(droppedPin(coordinates));
   }, [choosePlace]);
 
-  const setRadius = useCallback((radiusMeters: number) => {
+  const setRadius = useCallback((radiusMeters: RadiusMeters) => {
     setAtlasState((state) => ({ ...state, radiusMeters }));
   }, []);
 
-  const setWindow = useCallback((windowDays: number) => {
+  const setWindow = useCallback((windowDays: WindowDays) => {
     setAtlasState((state) => ({ ...state, windowDays }));
   }, []);
 
+  const { activeGroups } = atlasState;
   const toggleGroup = useCallback((group: CrimeGroup) => {
-    setAtlasState((state) => {
-      const active = state.activeGroups.includes(group);
-      if (active && state.activeGroups.length === 1) {
-        setToast('At least one published incident group must remain active.');
-        return state;
-      }
-      const activeGroups = active
+    if (activeGroups.length === 1 && activeGroups[0] === group) {
+      showToast(MIN_GROUP_MESSAGE);
+      return;
+    }
+    setAtlasState((state) => ({
+      ...state,
+      activeGroups: state.activeGroups.includes(group)
         ? state.activeGroups.filter((candidate) => candidate !== group)
-        : [...state.activeGroups, group];
-      return { ...state, activeGroups };
-    });
-  }, []);
+        : [...state.activeGroups, group],
+    }));
+  }, [activeGroups, showToast]);
 
   const locate = useCallback(() => {
     if (!('geolocation' in navigator)) {
-      setToast('This browser does not expose location access.');
+      showToast('This browser does not expose location access.');
       return;
     }
     setLocating(true);
@@ -127,7 +134,7 @@ export default function App() {
       (position) => {
         choosePlace({
           label: 'Current location',
-          detail: 'Browser location · coordinates are not stored',
+          detail: 'Approximate browser location',
           coordinates: [position.coords.longitude, position.coords.latitude],
         });
         setLocating(false);
@@ -136,12 +143,12 @@ export default function App() {
         const message = error.code === error.PERMISSION_DENIED
           ? 'Location permission was denied. Search or drop a pin instead.'
           : 'Current location could not be determined.';
-        setToast(message);
+        showToast(message);
         setLocating(false);
       },
       { enableHighAccuracy: true, timeout: 12_000, maximumAge: 60_000 },
     );
-  }, [choosePlace]);
+  }, [choosePlace, showToast]);
 
   const openSources = useCallback(() => setSourcesOpen(true), []);
   const closeSources = useCallback(() => setSourcesOpen(false), []);
@@ -160,7 +167,7 @@ export default function App() {
         >
           <AtlasMap
             center={atlasState.place.coordinates}
-            incidents={incidentState.analysis?.mapIncidents ?? []}
+            incidents={incidentState.analysis?.mapIncidents ?? NO_INCIDENTS}
             onIncidentSelect={selectIncident}
             onPointChange={chooseMapPoint}
             radiusMeters={atlasState.radiusMeters}
@@ -222,7 +229,7 @@ export default function App() {
 
       <EvidencePanel
         analysis={incidentState.analysis}
-        batch={incidentState.batch}
+        evidence={incidentState.evidence}
         error={incidentState.error}
         onIncidentSelect={selectIncident}
         onOpenSources={openSources}
@@ -237,7 +244,7 @@ export default function App() {
 
       {toast ? (
         <div className="toast" role="status">
-          <span>{toast}</span>
+          <span>{toast.message}</span>
           <button aria-label="Dismiss message" onClick={() => setToast(null)} type="button">
             <CloseIcon size={14} />
           </button>

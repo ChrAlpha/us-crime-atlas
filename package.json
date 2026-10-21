@@ -16,9 +16,10 @@
     "test": "vitest",
     "test:unit": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "test:data": "node scripts/check-data-sources.mjs",
-    "test:runtime": "node scripts/check-runtime-queries.mjs",
-    "test:contracts": "pnpm run test:data && pnpm run test:runtime",
+    "test:data": "vitest run --config vitest.live.config.ts live/contracts.live.test.ts",
+    "test:runtime": "vitest run --config vitest.live.config.ts live/runtime.live.test.ts",
+    "test:contracts": "vitest run --config vitest.live.config.ts",
+    "data:jurisdictions": "node scripts/fetch-jurisdictions.mjs",
     "check": "pnpm run typecheck && pnpm run test:unit && pnpm run build"
   },
   "dependencies": {
@@ -29,12 +30,16 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.10.2",
     "@playwright/test": "^1.57.0",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
     "@types/geojson": "^7946.0.16",
     "@types/node": "^22.15.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "6.0.4",
     "@vitest/coverage-v8": "4.1.10",
+    "jsdom": "^30.1.3",
     "typescript": "5.9.3",
     "vite": "8.2.0",
     "vitest": "4.1.10"

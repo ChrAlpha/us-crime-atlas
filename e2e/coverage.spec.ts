@@ -52,7 +52,7 @@ test('keeps eleven-city navigation and source disclosure usable', async ({ page 
   expect(sectionHeadings.indexOf('Read these limitations before acting')).toBeLessThan(
     sectionHeadings.indexOf('Other official local publishers'),
   );
-  await expect(dialog.getByText('selected weighted incidents / selected km²')).toBeVisible();
+  await expect(dialog.getByText('selected weighted incidents / covered selected km²')).toBeVisible();
   await expect(dialog.getByText('Philadelphia, Pennsylvania')).toBeVisible();
   await expect(dialog.getByText('Detroit, Michigan')).toBeVisible();
   await expect(dialog.getByText('Nashville, Tennessee')).toBeVisible();

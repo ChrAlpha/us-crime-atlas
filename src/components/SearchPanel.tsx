@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { FEATURED_PLACES, findProviderForPoint } from '../data/providers';
-import { GROUP_LABELS } from '../domain/categories';
+import { CRIME_GROUPS, GROUP_LABELS } from '../domain/categories';
+import { RADIUS_OPTIONS, WINDOW_OPTIONS } from '../domain/urlState';
 import { usePlaceSearch } from '../hooks/usePlaceSearch';
-import type { CrimeGroup, IncidentProvider, SelectedPlace } from '../types';
+import type { CrimeGroup, IncidentProvider, LoadStatus, RadiusMeters, SelectedPlace, WindowDays } from '../types';
 import {
   ChevronIcon,
   InfoIcon,
@@ -11,25 +12,21 @@ import {
   SlidersIcon,
 } from './Icons';
 
-interface SearchPanelProps {
+export interface SearchPanelProps {
   place: SelectedPlace;
   provider: IncidentProvider | null;
-  providerStatus: 'idle' | 'loading' | 'ready' | 'error';
-  radiusMeters: number;
-  windowDays: number;
-  activeGroups: CrimeGroup[];
+  providerStatus: LoadStatus;
+  radiusMeters: RadiusMeters;
+  windowDays: WindowDays;
+  activeGroups: readonly CrimeGroup[];
   locating: boolean;
   onPlaceSelect(place: SelectedPlace): void;
-  onRadiusChange(radius: number): void;
-  onWindowChange(days: number): void;
+  onRadiusChange(radius: RadiusMeters): void;
+  onWindowChange(days: WindowDays): void;
   onToggleGroup(group: CrimeGroup): void;
   onLocate(): void;
   onOpenSources(): void;
 }
-
-const radii = [500, 1000, 2000] as const;
-const windows = [14, 30, 60, 90] as const;
-const groups: CrimeGroup[] = ['violent', 'property', 'vehicle', 'weapons', 'other'];
 
 function samePoint(left: SelectedPlace, right: SelectedPlace) {
   return Math.abs(left.coordinates[0] - right.coordinates[0]) < 0.0001
@@ -158,7 +155,7 @@ export function SearchPanel({
           </strong>
           <small>
             {providerUnavailable
-              ? 'The publisher did not respond. Retry from the evidence panel.'
+              ? 'The official source could not be loaded. Retry from the evidence panel.'
               : provider
               ? `${provider.meta.cadence}. ${provider.meta.precisionNote}`
               : 'The map remains usable, but the atlas will not substitute proxy or synthetic crime data.'}
@@ -185,7 +182,7 @@ export function SearchPanel({
         <fieldset>
           <legend>Analysis radius</legend>
           <div className="segmented-control">
-            {radii.map((radius) => (
+            {RADIUS_OPTIONS.map((radius) => (
               <button
                 aria-pressed={radiusMeters === radius}
                 className={radiusMeters === radius ? 'is-active' : undefined}
@@ -202,7 +199,7 @@ export function SearchPanel({
         <fieldset>
           <legend>Observation window</legend>
           <div className="segmented-control segmented-control--four">
-            {windows.map((days) => (
+            {WINDOW_OPTIONS.map((days) => (
               <button
                 aria-pressed={windowDays === days}
                 className={windowDays === days ? 'is-active' : undefined}
@@ -219,7 +216,7 @@ export function SearchPanel({
         <fieldset>
           <legend>Published incident groups</legend>
           <div className="filter-chips">
-            {groups.map((group) => {
+            {CRIME_GROUPS.map((group) => {
               const active = activeGroups.includes(group);
               return (
                 <button

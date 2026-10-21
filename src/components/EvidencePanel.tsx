@@ -1,13 +1,25 @@
 import type { CSSProperties } from 'react';
-import { BAND_COPY } from '../domain/analysis';
+import { LATEST_RECORD_LOOKBACK_DAYS } from '../data/providers/shared';
+import { BAND_COPY, COMPARISON_RADIUS_MULTIPLIER, isTruncated } from '../domain/analysis';
 import { CATEGORY_LABELS } from '../domain/categories';
-import { formatSourceTimestamp } from '../domain/time';
+import {
+  currentWindowPredatesDataset,
+  isDelayedFeed,
+  lastDayOfWindow,
+  publicationLagDays,
+} from '../domain/evidenceWindow';
+import { formatDay, formatDayRange, formatSourceTimestamp } from '../domain/time';
 import type {
   AnalysisResult,
+  AreaCoverage,
+  EvidenceBundle,
+  EvidenceTruncation,
+  EvidenceWindow,
   Incident,
-  IncidentBatch,
   IncidentProvider,
+  LoadStatus,
   SelectedPlace,
+  UnavailableReason,
 } from '../types';
 import {
   ExternalIcon,
@@ -17,12 +29,12 @@ import {
   WarningIcon,
 } from './Icons';
 
-interface EvidencePanelProps {
+export interface EvidencePanelProps {
   place: SelectedPlace;
   provider: IncidentProvider | null;
-  status: 'idle' | 'loading' | 'ready' | 'error';
+  status: LoadStatus;
   analysis: AnalysisResult | null;
-  batch: IncidentBatch | null;
+  evidence: EvidenceBundle | null;
   error: string | null;
   radiusMeters: number;
   windowDays: number;
@@ -40,29 +52,112 @@ function radiusLabel(radiusMeters: number) {
   return radiusMeters < 1000 ? `${radiusMeters} m` : `${radiusMeters / 1000} km`;
 }
 
-function trendCopy(analysis: AnalysisResult) {
+function dayCount(days: number) {
+  return days === 1 ? '1 day' : `${days} days`;
+}
+
+/** Counts from a query that hit its record budget are shown as lower bounds. */
+function countLabel(count: number, lowerBound: boolean) {
+  return lowerBound ? `${count}+` : String(count);
+}
+
+function trendCopy(analysis: AnalysisResult, window: EvidenceWindow) {
+  if (analysis.trendDirection === 'unavailable') {
+    if (analysis.trendUnavailableReason === 'dataset-start') {
+      const start = window.datasetStartEpochMs === null ? '' : ` (starts ${formatDay(window.datasetStartEpochMs)})`;
+      return `No trend: the previous equal window predates this dataset${start}`;
+    }
+    return 'No trend: a window reached the record limit';
+  }
   if (analysis.trendDirection === 'none') return 'No reports in either equal window';
   if (analysis.trendDirection === 'new') return 'Previous equal window had no reports';
   if (analysis.trendDirection === 'flat') return 'Unchanged from previous equal window';
   const change = Math.abs(Math.round(analysis.trendPercent ?? 0));
+  if (change === 0) return 'Within 1% of previous equal window';
   return `${change}% ${analysis.trendDirection === 'up' ? 'higher' : 'lower'} than previous equal window`;
 }
 
 function comparisonHeadline(analysis: AnalysisResult): string {
+  if (analysis.comparisonUnavailableReason) return 'Nearby comparison unavailable';
   return analysis.relativeActivity === null
     ? 'No stable nearby comparison'
     : `${analysis.relativeActivity.toFixed(2)}× nearby weighted report density`;
 }
 
-function comparisonRangeLabel(radiusMeters: number): string {
-  if (radiusMeters % 1000 === 0) {
-    return `${radiusMeters / 1000} to ${radiusMeters * 3 / 1000} km`;
+const COMPARISON_UNAVAILABLE_DETAIL: Record<UnavailableReason, string> = {
+  'record-limit': 'The nearby area has more reports than one query can return, so its density would be understated.',
+  'dataset-start': 'The dataset does not cover the whole window, so the densities would not be comparable.',
+  jurisdiction: 'Too little of the selected circle or nearby area lies inside city limits for a stable comparison.',
+};
+
+/** Below this covered share of either area, the panel says how much lies outside city limits. */
+const AREA_NOTICE_SHARE = 0.95;
+
+export function areaCoverageCopy(coverage: AreaCoverage, city: string): string | null {
+  const outsideSelected = Math.round((1 - coverage.selected) * 100);
+  const outsideNearby = Math.round((1 - coverage.nearby) * 100);
+  if (coverage.selected >= AREA_NOTICE_SHARE && coverage.nearby >= AREA_NOTICE_SHARE) return null;
+  const parts = [
+    outsideSelected > 0 ? `${outsideSelected}% of the selected circle` : null,
+    outsideNearby > 0 ? `${outsideNearby}% of the nearby area` : null,
+  ].filter(Boolean);
+  return `${parts.join(' and ')} ${parts.length > 1 ? 'lie' : 'lies'} outside ${city} limits, where this feed has `
+    + 'no records. Densities use only the area inside the city.';
+}
+
+export function truncationCopy(truncation: EvidenceTruncation, recordLimit: number): string {
+  const limit = `${recordLimit.toLocaleString('en-US')}-record limit`;
+  if (truncation.selectedCurrent || truncation.selectedPrevious) {
+    return `A selected-area query reached the ${limit}. Counts are lower bounds, the trend is withheld and `
+      + 'evidence confidence has been reduced. A smaller radius or shorter window avoids this.';
   }
-  return `${radiusLabel(radiusMeters)} to ${radiusLabel(radiusMeters * 3)}`;
+  return `The nearby comparison query reached the ${limit}, so the nearby comparison is withheld. `
+    + 'Selected-area counts are complete. A smaller radius or shorter window avoids this.';
+}
+
+function comparisonRangeLabel(radiusMeters: number): string {
+  const outer = radiusMeters * COMPARISON_RADIUS_MULTIPLIER;
+  if (radiusMeters % 1000 === 0) return `${radiusMeters / 1000} to ${outer / 1000} km`;
+  return `${radiusLabel(radiusMeters)} to ${radiusLabel(outer)}`;
+}
+
+export function windowRangeLabel(window: EvidenceWindow): string {
+  return formatDayRange(window.currentStartEpochMs, lastDayOfWindow(window));
+}
+
+export function settlingCopy(window: EvidenceWindow): string | null {
+  if (window.settlingDays === 0 || window.latestRecordEpochMs === null) return null;
+  return `Newest ${dayCount(window.settlingDays)} excluded while still being filled in`;
 }
 
 function latestCopy(analysis: AnalysisResult) {
   return analysis.latestObservedAt ? formatSourceTimestamp(analysis.latestObservedAt) : 'No observation in window';
+}
+
+export function delayedFeedCopy(window: EvidenceWindow, cadence: string): string {
+  if (window.latestRecordEpochMs === null) {
+    return `No records were published in the last ${LATEST_RECORD_LOOKBACK_DAYS} days. ${cadence}.`;
+  }
+  const newest = formatDay(window.latestRecordEpochMs);
+  const end = formatDay(lastDayOfWindow(window));
+  const filling = window.settlingDays === 1 ? 'newest day is' : `newest ${window.settlingDays} days are`;
+  const settling = window.settlingDays > 0
+    ? ` The ${filling} still being filled in, so the window ends ${end}.`
+    : ` The window ends ${end}.`;
+  return `The newest published record is from ${newest}. ${cadence}.${settling} `
+    + 'Unpublished days are never counted as quiet days.';
+}
+
+function DelayedFeedNotice({ window, provider }: { window: EvidenceWindow; provider: IncidentProvider }) {
+  return (
+    <div className="data-notice" data-testid="delayed-feed-notice">
+      <InfoIcon size={16} />
+      <span>
+        <strong>Feed is {dayCount(publicationLagDays(window))} behind.</strong>{' '}
+        {delayedFeedCopy(window, provider.meta.cadence)}
+      </span>
+    </div>
+  );
 }
 
 function LoadingState() {
@@ -95,6 +190,48 @@ function UnsupportedState({ place, onOpenSources }: { place: SelectedPlace; onOp
   );
 }
 
+function DatasetStartNotice({ window }: { window: EvidenceWindow }) {
+  if (window.datasetStartEpochMs === null || !currentWindowPredatesDataset(window)) return null;
+  return (
+    <div className="data-notice" data-testid="dataset-start-notice">
+      <InfoIcon size={16} />
+      <span>
+        <strong>Partial window.</strong> This dataset starts {formatDay(window.datasetStartEpochMs)}, so earlier days
+        of the window have no published records and are not counted as quiet days.
+      </span>
+    </div>
+  );
+}
+
+function AreaCoverageNotice({ coverage, city }: { coverage: AreaCoverage; city: string }) {
+  const copy = areaCoverageCopy(coverage, city);
+  if (!copy) return null;
+  return (
+    <div className="data-notice" data-testid="area-coverage-notice">
+      <InfoIcon size={16} />
+      <span>
+        <strong>Partly outside city limits.</strong> {copy}
+      </span>
+    </div>
+  );
+}
+
+function NoRecordsState({ evidence, onOpenSources }: { evidence: EvidenceBundle; onOpenSources(): void }) {
+  return (
+    <div className="state-card" data-testid="no-records-state">
+      <InfoIcon />
+      <div>
+        <strong>No recent records from {evidence.provider.agency}</strong>
+        <p>
+          {delayedFeedCopy(evidence.window, evidence.provider.cadence)} Without published records there is nothing to
+          count or compare, so no figures are shown.
+        </p>
+        <button onClick={onOpenSources} type="button">Review source status</button>
+      </div>
+    </div>
+  );
+}
+
 function ErrorState({ error, onRefresh }: { error: string | null; onRefresh(): void }) {
   return (
     <div className="state-card state-card--error" role="alert">
@@ -110,7 +247,8 @@ function ErrorState({ error, onRefresh }: { error: string | null; onRefresh(): v
 
 function AnalysisContent({
   analysis,
-  batch,
+  evidence,
+  newestRecordEpochMs,
   provider,
   radiusMeters,
   windowDays,
@@ -119,7 +257,8 @@ function AnalysisContent({
   onOpenSources,
 }: {
   analysis: AnalysisResult;
-  batch: IncidentBatch;
+  evidence: EvidenceBundle;
+  newestRecordEpochMs: number;
   provider: IncidentProvider;
   radiusMeters: number;
   windowDays: number;
@@ -127,9 +266,17 @@ function AnalysisContent({
   onIncidentSelect(incident: Incident): void;
   onOpenSources(): void;
 }) {
-  const band = BAND_COPY[analysis.band];
+  const band = analysis.comparisonUnavailableReason
+    ? { label: 'Comparison withheld', detail: COMPARISON_UNAVAILABLE_DETAIL[analysis.comparisonUnavailableReason] }
+    : BAND_COPY[analysis.band];
+  const settling = settlingCopy(evidence.window);
   const maxDaily = Math.max(1, ...analysis.dailyActivity.map((day) => day.count));
-  const observationCount = analysis.currentCount + analysis.nearbyCurrentIncidents.length;
+  const nearbyIsLowerBound = evidence.truncation.comparison;
+  const observationCount = countLabel(
+    analysis.currentCount + analysis.nearbyCurrentIncidents.length,
+    analysis.currentCountIsLowerBound || nearbyIsLowerBound,
+  );
+  const currentCount = countLabel(analysis.currentCount, analysis.currentCountIsLowerBound);
 
   return (
     <>
@@ -146,24 +293,31 @@ function AnalysisContent({
           <span>
             {radiusLabel(radiusMeters)} circle · {comparisonRangeLabel(radiusMeters)} nearby · {windowDays} days
           </span>
+          <span className="confidence-row__window" data-testid="evidence-window">
+            {windowRangeLabel(evidence.window)}
+            {settling ? ` · ${settling}` : ''}
+          </span>
         </div>
       </section>
 
-      {batch.truncated ? (
-        <div className="data-warning">
+      {isDelayedFeed(evidence.window) ? <DelayedFeedNotice provider={provider} window={evidence.window} /> : null}
+
+      <DatasetStartNotice window={evidence.window} />
+
+      <AreaCoverageNotice city={provider.meta.city} coverage={evidence.areaCoverage} />
+
+      {isTruncated(evidence.truncation) ? (
+        <div className="data-warning" data-testid="truncation-warning">
           <WarningIcon />
-          <span>
-            The query reached the publisher limit of {batch.queryLimit.toLocaleString()} records. Counts may be
-            incomplete and evidence confidence has been reduced.
-          </span>
+          <span>{truncationCopy(evidence.truncation, evidence.recordLimit)}</span>
         </div>
       ) : null}
 
       <div className="metric-grid">
         <article>
           <span>Reported incidents</span>
-          <strong data-testid="reported-count">{analysis.currentCount}</strong>
-          <small>{trendCopy(analysis)}</small>
+          <strong data-testid="reported-count">{currentCount}</strong>
+          <small>{trendCopy(analysis, evidence.window)}</small>
         </article>
         <article>
           <span>Violent reports</span>
@@ -173,12 +327,15 @@ function AnalysisContent({
         <article>
           <span>Nighttime reports</span>
           <strong>{analysis.nightCount}</strong>
-          <small>{percent(analysis.nightShare)} occurred 10 PM–4:59 AM</small>
+          <small>
+            {percent(analysis.nightShare)} occurred 10 PM–4:59 AM
+            {analysis.untimedCount > 0 ? ` · ${analysis.untimedCount} without a published time` : ''}
+          </small>
         </article>
         <article>
           <span>Nearby comparator</span>
-          <strong>{analysis.nearbyCurrentIncidents.length}</strong>
-          <small>Between {radiusLabel(radiusMeters)} and {radiusLabel(radiusMeters * 3)}</small>
+          <strong>{countLabel(analysis.nearbyCurrentIncidents.length, nearbyIsLowerBound)}</strong>
+          <small>Between {radiusLabel(radiusMeters)} and {radiusLabel(radiusMeters * COMPARISON_RADIUS_MULTIPLIER)}</small>
         </article>
       </div>
 
@@ -199,7 +356,7 @@ function AnalysisContent({
       <section className="evidence-section">
         <div className="section-heading">
           <h3>Most recent selected-area reports</h3>
-          <span>{analysis.currentCount} total</span>
+          <span>{currentCount} total</span>
         </div>
         {analysis.currentIncidents.length > 0 ? (
           <div className="incident-list">
@@ -216,7 +373,8 @@ function AnalysisContent({
           </div>
         ) : (
           <p className="empty-copy">
-            No reports in the selected radius match the active categories and {windowDays}-day window.
+            No reports in the selected radius match the active categories between{' '}
+            {windowRangeLabel(evidence.window)}.
           </p>
         )}
       </section>
@@ -229,7 +387,7 @@ function AnalysisContent({
         <div
           className="timeline"
           role="img"
-          aria-label={`Daily report count timeline for the last ${analysis.dailyActivity.length} days. ${analysis.currentCount} reports total.`}
+          aria-label={`Daily report count timeline for the last ${analysis.dailyActivity.length} days. ${currentCount} reports total.`}
         >
           {analysis.dailyActivity.map((day) => {
             const height = Math.max(4, (day.count / maxDaily) * 100);
@@ -288,7 +446,11 @@ function AnalysisContent({
             <dd>{provider.meta.precision}</dd>
           </div>
           <div>
-            <dt>Latest observed</dt>
+            <dt>Newest in feed</dt>
+            <dd>{formatDay(newestRecordEpochMs)}</dd>
+          </div>
+          <div>
+            <dt>Latest here</dt>
             <dd>{latestCopy(analysis)}</dd>
           </div>
         </dl>
@@ -306,7 +468,7 @@ export function EvidencePanel({
   provider,
   status,
   analysis,
-  batch,
+  evidence,
   error,
   radiusMeters,
   windowDays,
@@ -320,15 +482,18 @@ export function EvidencePanel({
     body = <UnsupportedState onOpenSources={onOpenSources} place={place} />;
   } else if (status === 'error') {
     body = <ErrorState error={error} onRefresh={onRefresh} />;
-  } else if (!analysis || !batch) {
+  } else if (!analysis || !evidence) {
     body = <LoadingState />;
+  } else if (evidence.window.latestRecordEpochMs === null) {
+    body = <NoRecordsState evidence={evidence} onOpenSources={onOpenSources} />;
   } else {
     body = (
       <div className="evidence-content">
         {status === 'loading' ? <div className="updating-badge" role="status">Refreshing official records…</div> : null}
         <AnalysisContent
           analysis={analysis}
-          batch={batch}
+          evidence={evidence}
+          newestRecordEpochMs={evidence.window.latestRecordEpochMs}
           onIncidentSelect={onIncidentSelect}
           onOpenSources={onOpenSources}
           provider={provider}
@@ -339,7 +504,8 @@ export function EvidencePanel({
       </div>
     );
   }
-  const compact = !provider || status === 'error';
+  const hasRecords = evidence !== null && evidence.window.latestRecordEpochMs !== null;
+  const compact = !provider || status === 'error' || (evidence !== null && !hasRecords);
 
   return (
     <aside
@@ -351,7 +517,11 @@ export function EvidencePanel({
         <div>
           <span className="eyebrow">Observed evidence</span>
           <h2 title={place.label}>{place.label}</h2>
-          <p>{radiusLabel(radiusMeters)} · last {windowDays} days · published incidents</p>
+          <p>
+            {radiusLabel(radiusMeters)} · {windowDays} days
+            {evidence && hasRecords && status !== 'error' ? ` ending ${formatDay(lastDayOfWindow(evidence.window))}` : ''} · published
+            incidents
+          </p>
         </div>
         {provider ? (
           <button

@@ -1,3 +1,20 @@
+@media (max-width: 1100px) and (min-width: 821px) {
+  .search-panel {
+    width: 318px;
+  }
+
+  .evidence-panel {
+    width: 336px;
+  }
+
+  .maplibregl-ctrl-top-right {
+    right: 364px;
+  }
+
+  .brand-status {
+    display: none;
+  }
+}
 
 @media (max-width: 1000px) {
   .map-veil {
