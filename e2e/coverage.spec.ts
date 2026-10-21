@@ -18,16 +18,19 @@ const featuredPlaces = [
   'Downtown Denver',
   'Hollywood',
   'Union Square',
+  'Lake Merritt',
   'Pike Place',
 ];
 
-test('keeps eleven-city navigation and source disclosure usable', async ({ page }, testInfo) => {
+test('keeps multi-city navigation and source disclosure usable', async ({ page }, testInfo) => {
   await mockOfficialSources(page);
   await page.goto('/?e2e=1');
   await expect(page.getByTestId('reported-count')).toHaveText('5');
 
   const featured = page.getByLabel('Featured covered places');
-  await expect(featured.getByRole('button')).toHaveCount(11);
+  // One featured place per registered provider, first-release cities first.
+  const providerCount = await featured.getByRole('button').count();
+  expect(providerCount).toBeGreaterThan(featuredPlaces.length);
   for (const label of featuredPlaces) {
     await expect(featured.getByRole('button', { name: label })).toBeAttached();
   }
@@ -43,7 +46,7 @@ test('keeps eleven-city navigation and source disclosure usable', async ({ page 
 
   const dialog = page.getByRole('dialog', { name: 'Sources & methodology' });
   await expect(dialog).toBeVisible();
-  await expect(dialog.locator('.provider-cards article')).toHaveCount(11);
+  await expect(dialog.locator('.provider-cards article')).toHaveCount(providerCount);
   const sectionHeadings = await dialog.locator('.source-dialog__body h3').allTextContents();
   expect(sectionHeadings[0]).toBe('Current source');
   expect(sectionHeadings.indexOf('Current source')).toBeLessThan(

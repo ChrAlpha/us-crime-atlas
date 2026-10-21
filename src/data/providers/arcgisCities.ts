@@ -11,10 +11,10 @@ import {
 import { buildIncident, joinLabels, roundCoordinates } from './incident';
 import { numberValue, publicCoordinates, textValue } from './shared';
 
-type Row = Record<string, unknown>;
+export type Row = Record<string, unknown>;
 
 /** The first non-empty text among `names`. */
-function firstText(row: Row, names: readonly string[], fallback = ''): string {
+export function firstText(row: Row, names: readonly string[], fallback = ''): string {
   for (const name of names) {
     const value = textValue(attribute(row, name));
     if (value) return value;
@@ -30,7 +30,7 @@ function firstNumber(row: Row, names: readonly string[]): number | null {
   return null;
 }
 
-interface CityFeatureConfig {
+export interface CityFeatureConfig {
   meta: ProviderMeta;
   epochSemantics: ArcgisEpochSemantics;
   idFields: readonly string[];
@@ -41,18 +41,27 @@ interface CityFeatureConfig {
   descriptionFields: readonly string[];
   locationFields: readonly string[];
   locationFallback: string;
+  /** Empty for layers whose coordinates come only from point geometry. */
   longitudeFields: readonly string[];
   latitudeFields: readonly string[];
   /** Rounds published coordinates to this many decimals. */
   coordinateDigits?: number;
+  /** Attributes only `refine` reads; requested alongside the mapped ones. */
+  refineFields?: readonly string[];
+  /** One more reviewed step on the mapped incident (a separate time of day, address generalization). */
+  refine?(incident: Incident, row: Row): Incident | null;
+}
+
+function featureCoordinates(feature: ArcgisFeature, row: Row, config: CityFeatureConfig) {
+  if (config.longitudeFields.length === 0) {
+    return publicCoordinates(numberValue(feature.geometry?.x), numberValue(feature.geometry?.y));
+  }
+  return publicCoordinates(firstNumber(row, config.longitudeFields), firstNumber(row, config.latitudeFields));
 }
 
 export function mapCityFeature(feature: ArcgisFeature, config: CityFeatureConfig): Incident | null {
   const row = feature.attributes ?? {};
-  const coordinates = publicCoordinates(
-    firstNumber(row, config.longitudeFields),
-    firstNumber(row, config.latitudeFields),
-  );
+  const coordinates = featureCoordinates(feature, row, config);
   const occurredAt = config.dateFields
     .map((field) => arcgisLocalTimestamp(attribute(row, field), config.epochSemantics, config.meta.timeZone))
     .find(Boolean);
@@ -80,6 +89,7 @@ function outFields(config: CityFeatureConfig, extra: readonly string[] = []) {
     ...config.locationFields,
     ...config.longitudeFields,
     ...config.latitudeFields,
+    ...(config.refineFields ?? []),
     ...extra,
   ])];
 }
@@ -96,18 +106,24 @@ export interface ArcgisLayerContract {
   pageSize: number;
 }
 
-interface LayerConfig {
+export interface LayerConfig {
   layerName: string;
   dateField: string;
   objectIdField: string;
   /** Overrides `ARCGIS_PAGE_SIZE` for a layer that serves smaller pages. */
   pageSize?: number;
+  filter?: string;
+  /** A table: the bounding box goes into the SQL predicate on these attributes. */
+  coordinateAttributes?: { latitude: string; longitude: string };
 }
 
 export const ARCGIS_LAYER_CONTRACTS: ArcgisLayerContract[] = [];
 
-function cityProvider(config: CityFeatureConfig, layer: LayerConfig) {
-  const mapFeature = (feature: ArcgisFeature) => mapCityFeature(feature, config);
+export function cityProvider(config: CityFeatureConfig, layer: LayerConfig) {
+  const mapFeature = (feature: ArcgisFeature) => {
+    const incident = mapCityFeature(feature, config);
+    return incident && config.refine ? config.refine(incident, feature.attributes ?? {}) : incident;
+  };
   const fields = outFields(config, [layer.objectIdField]);
   const pageSize = layer.pageSize ?? ARCGIS_PAGE_SIZE;
   // Smaller pages keep the same total record budget.
@@ -132,6 +148,9 @@ function cityProvider(config: CityFeatureConfig, layer: LayerConfig) {
       pageSize,
       maxPages,
       mapFeature,
+      returnGeometry: config.longitudeFields.length === 0,
+      ...(layer.filter ? { filter: layer.filter } : {}),
+      ...(layer.coordinateAttributes ? { coordinateAttributes: layer.coordinateAttributes } : {}),
     }),
   };
 }

@@ -22,7 +22,9 @@ The application uses incident-level publications from local law-enforcement agen
 - Denver Police Department Crime Offenses, official ArcGIS Feature Layer `ODC_CRIME_OFFENSES_P/FeatureServer/324`.
 - Los Angeles Police Department NIBRS Offenses Dataset 2026 to Present, Socrata dataset `k7nn-b2ep`.
 - San Francisco Police Department Incident Reports — 2018 to Present, Socrata dataset `wg3w-h783`.
+- Oakland Police Department CrimeWatch Data, Socrata dataset `ppgh-7dqv`.
 - Seattle Police Department Crime Data: 2008–Present, Socrata dataset `tazs-3rd5`.
+- Forty more city and county agencies in the Northeast and Midwest, South, and West, listed in [Regional expansion providers](#regional-expansion-providers).
 
 Each provider declares:
 
@@ -44,7 +46,7 @@ Candidate sources are deferred when the current official publication lacks usabl
 
 ### Stable Socrata schemas
 
-New York City, Chicago, and San Francisco bind a reviewed fixed field contract: explicit `$select`, day-aligned date range, coordinate bounds, a stable `date DESC, :id` sort, and bounded paging. The live contract job compares every fixed field with the dataset's published metadata, so a rename fails visibly.
+New York City, Chicago, San Francisco, and Oakland bind a reviewed fixed field contract: explicit `$select`, day-aligned date range, coordinate bounds, a stable `date DESC, :id` sort, and bounded paging. The live contract job compares every fixed field with the dataset's published metadata, so a rename fails visibly.
 
 ### Adaptive Socrata schemas
 
@@ -71,10 +73,59 @@ Washington, DC, Philadelphia, Detroit, Denver, and Nashville use reviewed offici
 
 - a SQL timestamp occurrence-date predicate, padded by a day on each side because layers compare literals in different reference zones (the exact window is applied client-side);
 - an `esriGeometryEnvelope` around the analysis request with a WGS84 input reference;
-- an explicit attribute list, including the published coordinate attributes (feature geometry is not requested; it roughly halves response time on the slower services);
+- an explicit attribute list, including the published coordinate attributes (feature geometry is requested only from layers that publish no coordinate attributes, as WGS84 via `outSR=4326`; skipping it roughly halves response time on the slower services);
 - a stable `date DESC, objectid ASC` sort with count-based paging.
 
+Two reviewed per-layer additions handle less tidy publications: a SQL `filter` that every query (including the newest-record lookup) adds, for example one row per incident or reports only rather than calls; and, for tables, which ignore envelope geometry, a bounding box compared against the coordinate attributes inside the SQL predicate. Socrata providers accept the same kind of reviewed `filter`, so excluded rows never spend the record budget.
+
 The health contract verifies every registered layer name and its required identity, date, category, and coordinate fields. Annual layer rollovers for Washington, DC and Detroit must be reviewed explicitly rather than guessed. Philadelphia publishes hundred-block locations, Detroit publishes nearest intersections, while Denver and Nashville coordinates are treated as approximate and rounded where needed.
+
+### Regional expansion providers
+
+The regional waves trade some precision for coverage: report-time instead of occurrence-time feeds, monthly or quarterly publishers, and coordinates the atlas rounds to an approximately one-hundred-meter grid wherever a feed's points look like exact geocodes. Every compromise is stated in that provider's source card. Settling days were reviewed from daily counts on 2026-10-21; "UTC" epochs are converted to the city's zone, "local clock" epochs are used as is, and "date only" rows keep midnight for windowing with no hour of day.
+
+| City | Agency and dataset | Backend | Settling days | Time semantics | Notes |
+| --- | --- | --- | ---: | --- | --- |
+| Boston, MA | Boston PD, Crime Incident Reports (`Boston_Incidents_Public_v2_view/FeatureServer/0`) | ArcGIS | 1 | UTC | No address published; non-crime rows excluded |
+| Hartford, CT | Hartford PD, Police Incidents (`OpenData_PublicSafety/FeatureServer/21`) | ArcGIS | 0 | Date plus published time | Published 10 days after the fact; non-NIBRS rows excluded; exact addresses generalized |
+| Rochester, NY | Rochester PD, Part I Crime (`RPD/RPD_Part_I_Crime/FeatureServer/3`) | ArcGIS | 8 | UTC | Part I only; exact addresses generalized |
+| Buffalo, NY | Buffalo PD, Crime Incidents, Socrata `d6g9-xbgu` | Socrata | 2 | Local clock | Part I only; exact addresses generalized |
+| Cleveland, OH | Cleveland Division of Police, Crime Incidents (`Crime_Incidents_P1RMS/FeatureServer/0`) | ArcGIS | 1 | UTC | New records system from 2025-11-11 |
+| Columbus, OH | Columbus Division of Police, Police Incident Reports (`Police_Incident_Reports/FeatureServer/0`) | ArcGIS | 2 | Local clock | Non-crime subjects excluded |
+| Cincinnati, OH | Cincinnati PD, Reported Crime, Socrata `t9kw-3jfx` | Socrata | 2 | Local clock | Weekly; points offset by the publisher |
+| Indianapolis, IN | Indianapolis Metropolitan PD, IMPD Public Data (`IMPD/IMPD_Public_Data/FeatureServer/1`) | ArcGIS | 1 | Local clock | IMPD rows only; traffic and unfounded excluded |
+| Aurora, IL | Aurora PD, Police Incidents (`AuroraIL.Police_Incidents/FeatureServer/0`) | ArcGIS | 1 | UTC, report time | Broad groupings only |
+| Minneapolis, MN | Minneapolis PD, Police Incidents 2026 (`Police_Incidents_2026/FeatureServer/0`) | ArcGIS | 7 | Date plus published time | Annual layer; Part I only |
+| Des Moines, IA | Des Moines PD, Public Safety Data Portal (`PSDP_Crime_Layer_View/FeatureServer/0`) | ArcGIS | 0 | Report day plus hour | Deliberate 28-day delay |
+| Kansas City, MO | Kansas City Missouri PD, Crime Data 2026, Socrata `f7wj-ckmw` | Socrata | 2 | Local clock | Annual dataset; per-person rows collapsed |
+| Omaha, NE | Omaha PD, Police Incident Data (`Omaha_Police_Incident_Data_(View)/FeatureServer/0`) | ArcGIS | 2 | UTC, window midpoint | Sensitive groups withheld by the publisher |
+| Baltimore, MD | Baltimore PD, NIBRS Group A Crime Data (`NIBRS_GroupA_Crime_Data/FeatureServer/0`) | ArcGIS | 2 | UTC | One row per victim, collapsed per case and offense; exact addresses generalized |
+| Montgomery County, MD | Montgomery County PD, Crime, Socrata `icn6-v9z3` | Socrata | 4 | Local clock | Countywide, with the Rockville, Gaithersburg and Takoma Park police; non-criminal reports excluded |
+| Raleigh, NC | Raleigh PD, Police Incidents (`Police_Incidents/FeatureServer/0`) | ArcGIS | 2 | Local date parts, report time | The epoch switched from UTC to local clock in September 2026, so the time is rebuilt from the local `reported_*` fields |
+| Charleston, SC | Charleston PD, PDI Reported Incidents (`PDI_Reported_Incidents/FeatureServer/0`) | ArcGIS | 2 | Local date plus published hour | About two weeks behind; only three published categories |
+| Charlotte, NC | Charlotte-Mecklenburg PD, CMPD Incidents (`CMPD/CMPDIncidents/MapServer/0`) | ArcGIS | 3 | Date only | Most serious offense per report; non-criminal reports excluded |
+| Orlando, FL | Orlando PD, OPD Cases (`OPD_Cases_Viewing/FeatureServer/0`) | ArcGIS | 4 | Local clock, case-created time | Reviewed non-crime case types excluded; no address, labeled by neighborhood |
+| Jacksonville, FL | Jacksonville Sheriff's Office, Public Transparency Data (`Public_Transparency_Data_View_10_03_2025/FeatureServer/0`) | ArcGIS | 1 | UTC | Consolidated city plus Baldwin; sexual offenses not published |
+| Tampa, FL | Tampa PD, Crimes Public, Last 365 Days (`crimes_public_365days/FeatureServer/0`) | ArcGIS | 2 | Date only | Only 13 Part I offense types; nearest intersection |
+| Atlanta, GA | Atlanta PD, Open Data Crime (`OpenDataWebsite_Crime_view/FeatureServer/0`) | ArcGIS | 3 | UTC | Exact addresses generalized |
+| Memphis, TN | Memphis PD, Public Safety Incidents (`MPD_Public_Safety_Incidents/FeatureServer/0`) | ArcGIS | 2 | UTC | Irregular batches; points rounded by the publisher; sex and juvenile offenses omitted |
+| New Orleans, LA | New Orleans PD, Calls for Service 2026, Socrata `es9j-6y5d` | Socrata | 0 | Local clock | Calls for service, not crime reports: reviewed crime call types only; annual dataset |
+| Baton Rouge, LA | Baton Rouge PD, Crime Incidents, Socrata `pbin-pcm7` | Socrata | 8 | Local clock | One row per charge; violations without a NIBRS offense excluded |
+| Arlington, TX | Arlington PD, Crime Data Rolling Day (`Police/PoliceExternal/MapServer/1`) | ArcGIS | 9 | UTC features, local-clock newest-record statistic | Rolling year; no address, labeled by beat |
+| Berkeley, CA | Berkeley PD, BPD Transparency Hub cases (`cases_latlon/FeatureServer/0`) | ArcGIS | 2 | UTC | One row per statute |
+| San Mateo, CA | San Mateo PD, PD Crime Data (`PD_Crime_Data_All/FeatureServer/1`) | ArcGIS | 3 | Date only | Quarterly; reports only; exact addresses generalized to hundred blocks |
+| Sacramento, CA | Sacramento PD, Police Crime (3 Years) (`Police_Crime_3Years/FeatureServer/0`) | ArcGIS | 2 | UTC | About 14-day embargo; confidential rows have no location |
+| Bakersfield, CA | Bakersfield PD, Public Crime View (`PublicCrimeView/FeatureServer/0`) | ArcGIS | 5 | Local clock | Selected serious offenses; no address |
+| Riverside, CA | Riverside PD, Crimes (`View_CrimesRPD/FeatureServer/4`) | ArcGIS | 12 | Date only | Dates are record-entry dates |
+| Las Vegas, NV | Las Vegas Metropolitan PD, Reported NIBRS Crimes (`Weekly_Public_Crimes/FeatureServer/0`) | ArcGIS | 9 | UTC, report time | Weekly; covers the city and unincorporated Clark County, including the Strip |
+| Tucson, AZ | Tucson PD, Reported Crimes 2026 (`TPDOpenData_ReportedCrimes_2026/FeatureServer/0`) | ArcGIS | 11 | Local clock | Annual layer; one row per incident (`MaxGRC='1'`) |
+| Tempe, AZ | Tempe PD, General Offenses (`General_Offenses_(Open_Data)/FeatureServer/0`) | ArcGIS | 21 | Local clock | Service calls and non-criminal codes excluded |
+| Mesa, AZ | Mesa PD, Police Criminal Offenses, Socrata `t445-fism` | Socrata | 16 | Date only | Sensitive incidents have no location |
+| Salt Lake City, UT | Salt Lake City PD, Public Crime at Intersections (`PublicCrime_At_Intersections/FeatureServer/0`) | ArcGIS | 0 | UTC day plus published hour | Monthly; Part I only; nearest intersection |
+| Boulder, CO | Boulder PD, BPD Offenses (`BPD_Offenses/FeatureServer/0`) | ArcGIS | 5 | Local clock | About three weeks behind |
+| Aurora, CO | Aurora PD, APD Transparency RMS Public View (`APD_Transparency_RMS_Public_View/FeatureServer/36`) | ArcGIS | 3 | Date only | Monthly; major offense categories only |
+| Colorado Springs, CO | Colorado Springs PD, Crime Level Data, Socrata `bc88-hemr` | Socrata | 11 | Local clock | "Not a crime" rows excluded |
+| Tacoma, WA | Tacoma PD, Reported Crime (`TPD_RMS_Crime/FeatureServer/0`, a table) | ArcGIS | 4 | Date plus approximate time | Publisher omits domestic violence and sex offenses; collisions excluded |
 
 ## Evidence windows
 
@@ -96,6 +147,7 @@ Settling days were reviewed from citywide daily counts on 2026-10-21:
 | New York City | 0 | Quarterly batch is complete when released |
 | Chicago, Los Angeles, Philadelphia | 1 | Newest day is partial |
 | Washington, DC, Detroit, Nashville, Dallas, San Francisco | 2 | Newest two days are partial |
+| Oakland | 3 | Newest three days are partial |
 | Denver | 4 | First-occurrence dates keep arriving for several days |
 | Seattle | 6 | Reports publish only after records approval |
 
@@ -107,7 +159,7 @@ The interface shows the exact dates, notes the excluded settling days, and calls
 
 ## Jurisdiction coverage
 
-Each feed only contains incidents inside its own police jurisdiction, so coverage follows legal city limits rather than a rectangle. The limits come from the U.S. Census Bureau TIGERweb "Incorporated Places" layer (January 1, 2026 vintage), simplified to about 20 m and committed as `src/data/jurisdictions.json`; `pnpm run data:jurisdictions` regenerates it. Nashville uses the consolidated government's balance, which excludes the satellite cities that run their own police departments.
+Each feed only contains incidents inside its own police jurisdiction, so coverage follows legal city limits rather than a rectangle. The limits come from the U.S. Census Bureau TIGERweb "Incorporated Places" layer (January 1, 2026 vintage), simplified to about 50 m, with annexed fragments smaller than about 0.02 km² dropped, and committed as `src/data/jurisdictions.json`; `pnpm run data:jurisdictions` regenerates it. Nashville and Indianapolis use the consolidated government's balance, which excludes the included cities that run their own police departments. Agencies that patrol beyond one city use a union of Census areas: Las Vegas Metropolitan Police adds the unincorporated Clark County communities around the city, including the Strip; the Jacksonville Sheriff's Office adds Baldwin; and Montgomery County, Maryland uses the whole county.
 
 - **Choosing a provider.** A point is covered only if it lies inside a provider's limits. A neighboring city inside the same rectangle (Jersey City and Hoboken beside New York, Beverly Hills, Santa Monica and Culver City inside Los Angeles, Evanston and Oak Park beside Chicago, Hamtramck and Highland Park inside Detroit) shows the coverage state, not a falsely quiet result.
 - **Covered area.** Near the limits, part of the circle or annulus has no records because it belongs to another jurisdiction or lies beyond a shoreline boundary. The share of each area inside the limits is estimated from 1,024 equal-area samples, and densities divide by the covered area only. Without this correction, a waterfront or border location reads as more active than it is. At the 1 km default, about 12% of the Times Square annulus lies in New Jersey, and about 23% of the Loop's lies on Lake Michigan.

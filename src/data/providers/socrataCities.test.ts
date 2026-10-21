@@ -11,9 +11,11 @@ import {
   mapDallasRow,
   mapLosAngelesRow,
   mapNewYorkRow,
+  mapOaklandRow,
   mapSanFranciscoRow,
   mapSeattleRow,
   newYorkProvider,
+  oaklandProvider,
   sanFranciscoProvider,
   seattleProvider,
 } from './socrataCities';
@@ -250,6 +252,40 @@ describe('San Francisco', () => {
   });
 });
 
+describe('Oakland', () => {
+  it('classifies from the offense row rather than the case crime type', () => {
+    expect(mapOaklandRow({
+      casenumber: '23-039988',
+      crimetype: 'TOWED VEHICLE',
+      description: 'BRANDISHING FIREARM REPLICA',
+      datetime: '2026-09-01T12:00:00.000',
+      address: '1400 BROADWAY',
+      policebeat: '03X',
+      location: { type: 'Point', coordinates: [-122.2712, 37.8044] },
+    })).toMatchObject({
+      id: 'oakland:23-039988:BRANDISHING FIREARM REPLICA',
+      occurredAt: '2026-09-01T12:00:00',
+      localHour: 12,
+      category: 'weapons',
+      rawCategory: 'TOWED VEHICLE',
+      precision: 'block',
+      locationLabel: '1400 BROADWAY',
+      coordinates: [-122.2712, 37.8044],
+    });
+  });
+
+  it('falls back to the crime type when the description is unspecific', () => {
+    expect(mapOaklandRow({
+      casenumber: '26-044000',
+      crimetype: 'STOLEN VEHICLE',
+      description: 'RECOVERED',
+      datetime: '2026-09-02T08:15:00.000',
+      location: { type: 'Point', coordinates: [-122.2, 37.78] },
+    })).toMatchObject({ category: 'vehicle', locationLabel: 'Published block' });
+    expect(mapOaklandRow({ casenumber: 'x', crimetype: 'THEFT', datetime: '2026-09-02T08:15:00.000' })).toBeNull();
+  });
+});
+
 describe('Los Angeles', () => {
   it('normalizes NIBRS hundred-block rows with compound identity', () => {
     expect(mapLosAngelesRow({
@@ -393,6 +429,7 @@ describe('Socrata city provider wiring', () => {
       [newYorkProvider, 'cmplnt_num,cmplnt_fr_dt,cmplnt_fr_tm,ofns_desc,pd_desc,law_cat_cd,loc_of_occur_desc,prem_typ_desc,boro_nm,latitude,longitude'],
       [chicagoProvider, 'id,date,primary_type,description,block,location_description,latitude,longitude'],
       [sanFranciscoProvider, 'row_id,incident_datetime,incident_category,incident_subcategory,incident_description,resolution,intersection,police_district,latitude,longitude'],
+      [oaklandProvider, 'casenumber,description,datetime,crimetype,address,policebeat,location'],
     ] as const) {
       const urls = stubSocrata();
       await provider.fetchIncidents(query(provider.meta.center));
