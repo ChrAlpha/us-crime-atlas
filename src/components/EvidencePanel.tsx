@@ -21,10 +21,11 @@ import type {
   SelectedPlace,
   UnavailableReason,
 } from '../types';
+import type { AreaSummaryState } from '../hooks/useAreaSummary';
+import { AreaSummaryContent } from './AreaSummaryContent';
 import {
   ExternalIcon,
   InfoIcon,
-  LayersIcon,
   RefreshIcon,
   WarningIcon,
 } from './Icons';
@@ -32,6 +33,8 @@ import {
 export interface EvidencePanelProps {
   place: SelectedPlace;
   provider: IncidentProvider | null;
+  /** FBI jurisdiction totals, used wherever no local incident feed covers the place. */
+  areaSummary: AreaSummaryState;
   status: LoadStatus;
   analysis: AnalysisResult | null;
   evidence: EvidenceBundle | null;
@@ -170,22 +173,6 @@ function LoadingState() {
         <span className="skeleton skeleton--metric" />
       </div>
       <span className="skeleton skeleton--chart" />
-    </div>
-  );
-}
-
-function UnsupportedState({ place, onOpenSources }: { place: SelectedPlace; onOpenSources(): void }) {
-  return (
-    <div className="state-card">
-      <LayersIcon />
-      <div>
-        <strong>No verified local incident feed</strong>
-        <p>
-          {place.label} is outside the first-release city coverage. The map remains available, but no national proxy,
-          inferred score, or synthetic event is substituted.
-        </p>
-        <button onClick={onOpenSources} type="button">Review current coverage</button>
-      </div>
     </div>
   );
 }
@@ -466,6 +453,7 @@ function AnalysisContent({
 export function EvidencePanel({
   place,
   provider,
+  areaSummary,
   status,
   analysis,
   evidence,
@@ -479,7 +467,9 @@ export function EvidencePanel({
 }: EvidencePanelProps) {
   let body = null;
   if (!provider) {
-    body = <UnsupportedState onOpenSources={onOpenSources} place={place} />;
+    if (areaSummary.status === 'error') body = <ErrorState error={areaSummary.error} onRefresh={areaSummary.refresh} />;
+    else if (areaSummary.result) body = <AreaSummaryContent onOpenSources={onOpenSources} place={place} result={areaSummary.result} />;
+    else body = <LoadingState />;
   } else if (status === 'error') {
     body = <ErrorState error={error} onRefresh={onRefresh} />;
   } else if (!analysis || !evidence) {
@@ -505,7 +495,9 @@ export function EvidencePanel({
     );
   }
   const hasRecords = evidence !== null && evidence.window.latestRecordEpochMs !== null;
-  const compact = !provider || status === 'error' || (evidence !== null && !hasRecords);
+  const compact = provider
+    ? status === 'error' || (evidence !== null && !hasRecords)
+    : areaSummary.status === 'error' || areaSummary.result?.kind === 'outside';
 
   return (
     <aside
@@ -517,11 +509,15 @@ export function EvidencePanel({
         <div>
           <span className="eyebrow">Observed evidence</span>
           <h2 title={place.label}>{place.label}</h2>
-          <p>
-            {radiusLabel(radiusMeters)} · {windowDays} days
-            {evidence && hasRecords && status !== 'error' ? ` ending ${formatDay(lastDayOfWindow(evidence.window))}` : ''} · published
-            incidents
-          </p>
+          {provider ? (
+            <p>
+              {radiusLabel(radiusMeters)} · {windowDays} days
+              {evidence && hasRecords && status !== 'error' ? ` ending ${formatDay(lastDayOfWindow(evidence.window))}` : ''} · published
+              incidents
+            </p>
+          ) : (
+            <p>Jurisdiction totals · 12 months · FBI Crime Data Explorer</p>
+          )}
         </div>
         {provider ? (
           <button

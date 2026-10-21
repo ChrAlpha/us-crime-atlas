@@ -1,8 +1,19 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { findProviderForPoint } from './data/providers';
 import { droppedPin, parseUrlState, serializeUrlState } from './domain/urlState';
+import { useAreaSummary } from './hooks/useAreaSummary';
 import { useIncidentAnalysis } from './hooks/useIncidentAnalysis';
-import type { AtlasState, Coordinates, CrimeGroup, Incident, RadiusMeters, SelectedPlace, WindowDays } from './types';
+import type { AreaSummaryState } from './hooks/useAreaSummary';
+import type {
+  AtlasState,
+  Coordinates,
+  CrimeGroup,
+  Incident,
+  LoadStatus,
+  RadiusMeters,
+  SelectedPlace,
+  WindowDays,
+} from './types';
 import { EvidencePanel } from './components/EvidencePanel';
 import { AtlasIcon, CloseIcon, InfoIcon, MoonIcon, SunIcon } from './components/Icons';
 import { MapErrorBoundary } from './components/MapErrorBoundary';
@@ -21,6 +32,28 @@ const AtlasMap = lazy(async () => {
   const module = await import('./components/AtlasMap');
   return { default: module.AtlasMap };
 });
+
+type SourceTone = 'neutral' | 'error' | 'loading' | 'ready' | 'coarse';
+
+/** The header pill: which kind of evidence backs the current place. */
+export function sourceIndicator(
+  hasProvider: boolean,
+  incidentStatus: LoadStatus,
+  areaSummary: Pick<AreaSummaryState, 'status' | 'result'>,
+): { sourceTone: SourceTone; sourceStatus: string } {
+  const status = hasProvider ? incidentStatus : areaSummary.status;
+  if (status === 'error') return { sourceTone: 'error', sourceStatus: 'Source unavailable' };
+  if (hasProvider) {
+    return status === 'ready'
+      ? { sourceTone: 'ready', sourceStatus: 'Official local feed' }
+      : { sourceTone: 'loading', sourceStatus: 'Checking official feed' };
+  }
+  const kind = areaSummary.result?.kind;
+  if (kind === 'agency') return { sourceTone: 'coarse', sourceStatus: 'FBI jurisdiction totals' };
+  if (kind === 'state') return { sourceTone: 'coarse', sourceStatus: 'Statewide context only' };
+  if (kind === 'outside') return { sourceTone: 'neutral', sourceStatus: 'Map only' };
+  return { sourceTone: 'loading', sourceStatus: 'Finding local agency' };
+}
 
 function initialTheme(): Theme {
   const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
@@ -51,21 +84,8 @@ export default function App() {
     windowDays: atlasState.windowDays,
     activeGroups: atlasState.activeGroups,
   });
-  const sourceTone = !provider
-    ? 'neutral'
-    : incidentState.status === 'error'
-      ? 'error'
-      : incidentState.status === 'loading'
-        ? 'loading'
-        : 'ready';
-  const sourceStatus = sourceTone === 'neutral'
-    ? 'Map only'
-    : sourceTone === 'error'
-      ? 'Source unavailable'
-      : sourceTone === 'loading'
-        ? 'Checking official feed'
-        : 'Official local feed';
-
+  const areaSummary = useAreaSummary(atlasState.place.coordinates, !provider);
+  const { sourceTone, sourceStatus } = sourceIndicator(provider !== null, incidentState.status, areaSummary);
   const selectedIncident = useMemo(() => {
     if (!selectedIncidentId || !incidentState.analysis) return null;
     return incidentState.analysis.mapIncidents.find((incident) => incident.id === selectedIncidentId) ?? null;
@@ -213,6 +233,7 @@ export default function App() {
 
       <SearchPanel
         activeGroups={atlasState.activeGroups}
+        areaSummary={areaSummary.result}
         locating={locating}
         onLocate={locate}
         onOpenSources={openSources}
@@ -229,6 +250,7 @@ export default function App() {
 
       <EvidencePanel
         analysis={incidentState.analysis}
+        areaSummary={areaSummary}
         evidence={incidentState.evidence}
         error={incidentState.error}
         onIncidentSelect={selectIncident}

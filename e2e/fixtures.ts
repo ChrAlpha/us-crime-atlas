@@ -194,6 +194,20 @@ async function adaptiveSource(page: Page, datasetId: string, fields: string[], r
   await page.route(`**/resource/${datasetId}.json?*`, socrataHandler(rows, rows.length > 0 ? sourceDate(0).timestamp : null));
 }
 
+/** Census TIGERweb answers for the places the browser suites visit outside the local feeds. */
+const CENSUS_FIXTURES: Record<string, { place: [string, string] | null; countySubdivision: [string, string] }> = {
+  '-74.0776,40.7282': { place: ['3436000', 'Jersey City city'], countySubdivision: ['3401736000', 'Jersey City city'] },
+  '-97.5164,35.4676': { place: ['4055000', 'Oklahoma City city'], countySubdivision: ['4010992426', 'Oklahoma City Southwest CCD'] },
+  '-118.1728,34.0239': { place: null, countySubdivision: ['0603793155', 'South Gate-East Los Angeles CCD'] },
+};
+
+function censusHandler(route: Route) {
+  const url = new URL(route.request().url());
+  const fixture = CENSUS_FIXTURES[url.searchParams.get('geometry') ?? ''];
+  const area = url.pathname.endsWith('/MapServer/4/query') ? fixture?.place : fixture?.countySubdivision;
+  return json(route, { features: area ? [{ attributes: { GEOID: area[0], NAME: area[1] } }] : [] });
+}
+
 export interface MockOptions {
   mode?: 'success' | 'error';
   /** Days the NYC feed lags behind today (NYPD publishes quarterly). */
@@ -244,4 +258,5 @@ export async function mockOfficialSources(page: Page, options: MockOptions | 'su
   await page.route('**/FEEDS/MPD/FeatureServer/41/query?*', arcgisHandler(dcFixture, Date.now()));
 
   await page.route('**/nominatim.openstreetmap.org/**', (route) => json(route, []));
+  await page.route('**/tigerweb.geo.census.gov/**', censusHandler);
 }

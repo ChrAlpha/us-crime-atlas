@@ -3,6 +3,8 @@ import type { IncidentProvider } from '../../types';
 import { ARCGIS_MAX_PAGES, ARCGIS_PAGE_SIZE } from './arcgis';
 import {
   ARCGIS_LAYER_CONTRACTS,
+  cityProvider,
+  DENVER_META,
   denverProvider,
   detroitProvider,
   mapDenverFeature,
@@ -215,6 +217,59 @@ describe('Nashville', () => {
   });
 });
 
+describe('ArcGIS layers without coordinate attributes', () => {
+  const meta = { ...DENVER_META, id: 'geometry-city', endpoint: 'https://example.com/arcgis/rest/services/Crime/FeatureServer/0' };
+  const geometryCity = cityProvider({
+    meta,
+    epochSemantics: 'local-clock',
+    idFields: ['case_id'],
+    dateFields: ['occurred'],
+    categoryFields: ['offense'],
+    descriptionFields: [],
+    locationFields: [],
+    locationFallback: 'Published point',
+    longitudeFields: [],
+    latitudeFields: [],
+    coordinateDigits: 3,
+  }, {
+    layerName: 'Crime',
+    dateField: 'occurred',
+    objectIdField: 'OBJECTID',
+    filter: "report = 'Y'",
+    coordinateAttributes: { latitude: 'lat', longitude: 'lon' },
+  });
+
+  it('reads WGS84 point geometry and rejects features without it', () => {
+    expect(geometryCity.mapFeature({
+      attributes: { case_id: 'G-1', occurred: Date.parse('2026-08-11T03:00:00Z'), offense: 'ROBBERY' },
+      geometry: { x: -104.99031, y: 39.73921 },
+    })).toMatchObject({ id: 'geometry-city:G-1', coordinates: [-104.99, 39.739], locationLabel: 'Published point' });
+    expect(geometryCity.mapFeature({ attributes: { case_id: 'G-2', occurred: 1 }, geometry: null })).toBeNull();
+    expect(geometryCity.mapFeature({ attributes: { case_id: 'G-3', occurred: 1 } })).toBeNull();
+  });
+
+  it('requests geometry and passes the reviewed filter and table bounds through', async () => {
+    const urls: URL[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: string) => {
+      const url = new URL(input);
+      urls.push(url);
+      const body = url.searchParams.get('returnCountOnly') === 'true' ? { count: 0 } : { features: [] };
+      return new Response(JSON.stringify(body), { status: 200 });
+    }));
+    await geometryCity.provider.fetchIncidents({
+      center: meta.center,
+      radiusMeters: 1000,
+      startEpochMs: Date.parse('2026-09-20T00:00:00Z'),
+      endEpochMs: Date.parse('2026-10-20T00:00:00Z'),
+    });
+    const page = urls.find((url) => url.searchParams.has('outFields'))!;
+    expect(page.searchParams.get('returnGeometry')).toBe('true');
+    expect(page.searchParams.get('outSR')).toBe('4326');
+    expect(page.searchParams.get('where')).toContain("(report = 'Y') AND lat >= ");
+    expect(page.searchParams.has('geometry')).toBe(false);
+  });
+});
+
 describe('ArcGIS city provider wiring', () => {
   const expected: Array<[IncidentProvider, string, string, string[]]> = [
     [washingtonDcProvider, 'START_DATE', 'OBJECTID', ['CCN', 'START_DATE', 'REPORT_DAT', 'OFFENSE', 'METHOD', 'BLOCK', 'LATITUDE', 'LONGITUDE']],
@@ -250,7 +305,7 @@ describe('ArcGIS city provider wiring', () => {
 
   it('pages DC at 1,000 rows, since some of its servers serve no more, keeping the record budget', async () => {
     const pageSizes = Object.fromEntries(ARCGIS_LAYER_CONTRACTS.map((contract) => [contract.meta.id, contract.pageSize]));
-    expect(pageSizes).toEqual({
+    expect(pageSizes).toMatchObject({
       'washington-dc': 1000,
       philadelphia: ARCGIS_PAGE_SIZE,
       detroit: ARCGIS_PAGE_SIZE,

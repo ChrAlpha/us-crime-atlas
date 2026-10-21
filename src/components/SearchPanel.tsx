@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { FEATURED_PLACES, findProviderForPoint } from '../data/providers';
 import { CRIME_GROUPS, GROUP_LABELS } from '../domain/categories';
 import { RADIUS_OPTIONS, WINDOW_OPTIONS } from '../domain/urlState';
+import type { AreaSummary } from '../hooks/useAreaSummary';
 import { usePlaceSearch } from '../hooks/usePlaceSearch';
 import type { CrimeGroup, IncidentProvider, LoadStatus, RadiusMeters, SelectedPlace, WindowDays } from '../types';
 import {
@@ -16,6 +17,8 @@ export interface SearchPanelProps {
   place: SelectedPlace;
   provider: IncidentProvider | null;
   providerStatus: LoadStatus;
+  /** FBI jurisdiction totals standing in where no local incident feed covers the place. */
+  areaSummary: AreaSummary | null;
   radiusMeters: RadiusMeters;
   windowDays: WindowDays;
   activeGroups: readonly CrimeGroup[];
@@ -26,6 +29,29 @@ export interface SearchPanelProps {
   onToggleGroup(group: CrimeGroup): void;
   onLocate(): void;
   onOpenSources(): void;
+}
+
+/** The source strip's copy and tone wherever no local incident feed covers the place. */
+export function fallbackSourceCopy(areaSummary: AreaSummary | null): { title: string; detail: string; tone: string } {
+  if (areaSummary?.kind === 'agency') {
+    return {
+      title: areaSummary.summary.match.agency.name,
+      detail: 'FBI twelve-month totals for the whole jurisdiction. No local incident feed covers this point yet.',
+      tone: 'is-coarse',
+    };
+  }
+  if (areaSummary?.kind === 'state') {
+    return {
+      title: `${areaSummary.summary.stateName} statewide context`,
+      detail: 'No local agency totals matched this point, and no synthetic data is substituted.',
+      tone: 'is-coarse',
+    };
+  }
+  return {
+    title: 'No verified incident feed here yet',
+    detail: 'The map remains usable, but the atlas will not substitute proxy or synthetic crime data.',
+    tone: 'is-unsupported',
+  };
 }
 
 function samePoint(left: SelectedPlace, right: SelectedPlace) {
@@ -41,6 +67,7 @@ export function SearchPanel({
   place,
   provider,
   providerStatus,
+  areaSummary,
   radiusMeters,
   windowDays,
   activeGroups,
@@ -56,6 +83,7 @@ export function SearchPanel({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const search = usePlaceSearch();
   const providerUnavailable = Boolean(provider && providerStatus === 'error');
+  const fallback = fallbackSourceCopy(areaSummary);
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -140,7 +168,7 @@ export function SearchPanel({
 
       <button
         aria-label="Sources & methodology"
-        className={`provider-strip${provider ? '' : ' is-unsupported'}${providerUnavailable ? ' has-error' : ''}`}
+        className={`provider-strip${provider ? '' : ` ${fallback.tone}`}${providerUnavailable ? ' has-error' : ''}`}
         onClick={onOpenSources}
         type="button"
       >
@@ -151,14 +179,14 @@ export function SearchPanel({
               ? `${provider?.meta.agency} is temporarily unavailable`
               : provider
                 ? provider.meta.agency
-                : 'No verified incident feed here yet'}
+                : fallback.title}
           </strong>
           <small>
             {providerUnavailable
               ? 'The official source could not be loaded. Retry from the evidence panel.'
               : provider
               ? `${provider.meta.cadence}. ${provider.meta.precisionNote}`
-              : 'The map remains usable, but the atlas will not substitute proxy or synthetic crime data.'}
+              : fallback.detail}
           </small>
         </span>
         <span className="provider-strip__action" aria-hidden="true">

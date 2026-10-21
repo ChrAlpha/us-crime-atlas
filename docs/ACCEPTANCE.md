@@ -5,7 +5,7 @@ A change is release-ready only when the relevant automated gates pass and the vi
 ## Functional
 
 - [ ] A supported featured place selects the correct local provider.
-- [ ] All eleven registered provider bounds resolve to the intended agency and do not overlap an unrelated city.
+- [ ] All registered provider bounds resolve to the intended agency and do not overlap an unrelated city.
 - [ ] A map click updates the analysis point and URL state.
 - [ ] Place search is submitted explicitly; it does not issue per-keystroke requests.
 - [ ] Radius options of 500 m, 1 km, and 2 km update the circle and analysis.
@@ -27,7 +27,7 @@ A change is release-ready only when the relevant automated gates pass and the vi
 
 ## Data integrity
 
-- [ ] All eleven live city endpoints resolve the required identity, date, category, and geometry semantics through the real provider code.
+- [ ] All live city endpoints resolve the required identity, date, category, and geometry semantics through the real provider code.
 - [ ] ArcGIS epochs are interpreted per layer (true UTC versus local wall-clock), and each city's quietest hours fall in the early morning.
 - [ ] Current and previous windows use separate, paged requests; if the wider comparison request is truncated, the selected circle's current window is re-fetched on its own budget.
 - [ ] Adaptive Socrata providers resolve only explicitly reviewed aliases from official dataset metadata.
@@ -49,8 +49,8 @@ A change is release-ready only when the relevant automated gates pass and the vi
 ## Responsive UI and interaction
 
 - [ ] Desktop at 1440 × 960 keeps map, explorer, and evidence inspector usable simultaneously.
-- [ ] The eleven-place featured strip remains usable without page-level overflow.
-- [ ] The source dialog remains usable with eleven provider cards at desktop, tablet, and mobile widths.
+- [ ] The featured strip (one place per registered city) remains usable without page-level overflow.
+- [ ] The source dialog remains usable with every provider card at desktop, tablet, and mobile widths.
 - [ ] iPhone-class viewport keeps 44 px-class primary touch targets and has no horizontal overflow.
 - [ ] The mobile layout keeps the map and evidence in one readable document flow, with collapsible analysis settings.
 - [ ] Search and analysis controls remain reachable without trapping page scroll.
@@ -73,8 +73,8 @@ A change is release-ready only when the relevant automated gates pass and the vi
 - [ ] `pnpm run typecheck`
 - [ ] `pnpm run test:unit` with coverage thresholds over all application source (98% lines/statements/functions, 95% branches)
 - [ ] `pnpm run build`
-- [ ] `pnpm run test:data` across all eleven official city contracts and both base-map styles
-- [ ] `pnpm run test:runtime` loading live evidence through all eleven real providers
+- [ ] `pnpm run test:data` across every official city contract and both base-map styles
+- [ ] `pnpm run test:runtime` loading live evidence through every real provider
 - [ ] `pnpm run test:e2e` in desktop, tablet, and mobile Chromium projects
 - [ ] Browser acceptance explicitly exercises a fixed Socrata, a metadata-resolved Socrata, an ArcGIS, and a delayed provider
 - [ ] Scheduled `.github/workflows/provider-health.yml` can run manually and is configured for twice-weekly checks

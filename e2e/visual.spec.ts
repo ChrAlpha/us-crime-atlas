@@ -105,7 +105,17 @@ test('captures source failure and unsupported-place states', async ({ page }, te
   }
 
   await page.goto('/?e2e=1&lat=35.4676&lng=-97.5164&place=Oklahoma+City&detail=Oklahoma');
-  await expect(page.getByText('No verified local incident feed')).toBeVisible();
+  await expect(page.getByTestId('jurisdiction-band')).toContainText('Oklahoma City Police Department');
+  await expect(page.locator('.brand-status')).toContainText('FBI jurisdiction totals');
+  await expectMapReady(page);
+  await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-jurisdiction.png` });
+  if (testInfo.project.name.startsWith('mobile')) {
+    await page.getByTestId('jurisdiction-band').evaluate((element) => element.scrollIntoView({ block: 'center' }));
+    await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-jurisdiction-detail.png` });
+  }
+
+  await page.goto('/?e2e=1&lat=43.6532&lng=-79.3832&place=Toronto&detail=Ontario');
+  await expect(page.getByTestId('outside-coverage')).toBeVisible();
   await expect(page.locator('.brand-status')).toContainText('Map only');
   await expectMapReady(page);
   if (usesOverlayPanels) {

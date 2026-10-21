@@ -13,11 +13,18 @@ import {
   dallasProvider,
   losAngelesProvider,
   newYorkProvider,
+  oaklandProvider,
   sanFranciscoProvider,
   seattleProvider,
 } from './socrataCities';
+import { NORTHEAST_FEATURED_PLACES, NORTHEAST_PROVIDERS } from './northeastCities';
+import { SOUTH_FEATURED_PLACES, SOUTH_PROVIDERS } from './southCities';
+import { WEST_FEATURED_PLACES, WEST_PROVIDERS } from './westCities';
 
-/** Registered providers, ordered east to west to match the featured strip. */
+/**
+ * Registered providers: the first-release cities east to west, then each regional expansion
+ * wave. FEATURED_PLACES follows the same order.
+ */
 export const providers: readonly IncidentProvider[] = [
   newYorkProvider,
   washingtonDcProvider,
@@ -29,7 +36,11 @@ export const providers: readonly IncidentProvider[] = [
   denverProvider,
   losAngelesProvider,
   sanFranciscoProvider,
+  oaklandProvider,
   seattleProvider,
+  ...NORTHEAST_PROVIDERS,
+  ...SOUTH_PROVIDERS,
+  ...WEST_PROVIDERS,
 ];
 
 export const providerMetadata: readonly ProviderMeta[] = providers.map((provider) => provider.meta);
@@ -57,5 +68,9 @@ export const FEATURED_PLACES: readonly SelectedPlace[] = [
   { label: 'Downtown Denver', detail: 'Denver, Colorado', coordinates: [-104.9903, 39.7392] },
   { label: 'Hollywood', detail: 'Los Angeles, California', coordinates: [-118.3406, 34.1016] },
   { label: 'Union Square', detail: 'San Francisco, California', coordinates: [-122.4075, 37.788] },
+  { label: 'Lake Merritt', detail: 'Oakland, California', coordinates: [-122.2585, 37.8027] },
   { label: 'Pike Place', detail: 'Seattle, Washington', coordinates: [-122.3422, 47.6097] },
+  ...NORTHEAST_FEATURED_PLACES,
+  ...SOUTH_FEATURED_PLACES,
+  ...WEST_FEATURED_PLACES,
 ];

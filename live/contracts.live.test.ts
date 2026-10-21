@@ -2,24 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { CLUSTER_LABEL_FONT, OPENFREEMAP_STYLES } from '../src/components/mapLayers';
 import { ARCGIS_LAYER_CONTRACTS } from '../src/data/providers/arcgisCities';
 import { fetchJson } from '../src/data/providers/shared';
-import { metadataUrlFromEndpoint } from '../src/data/providers/socrata';
-import {
-  chicagoProvider,
-  dallasProvider,
-  losAngelesProvider,
-  newYorkProvider,
-  sanFranciscoProvider,
-  seattleProvider,
-} from '../src/data/providers/socrataCities';
+import { providers } from '../src/data/providers';
+import { metadataUrlFromEndpoint, type SocrataResolvable } from '../src/data/providers/socrata';
 
-const socrataProviders = [
-  newYorkProvider,
-  chicagoProvider,
-  sanFranciscoProvider,
-  losAngelesProvider,
-  seattleProvider,
-  dallasProvider,
-];
+/** Every registered Socrata provider, fixed or metadata-resolved. */
+const socrataProviders = providers.filter((provider): provider is SocrataResolvable => 'resolveFields' in provider);
 
 interface SocrataMetadata {
   columns?: Array<{ fieldName?: string }>;
