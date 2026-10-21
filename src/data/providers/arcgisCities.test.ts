@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { IncidentProvider } from '../../types';
+import { ARCGIS_MAX_PAGES, ARCGIS_PAGE_SIZE } from './arcgis';
 import {
+  ARCGIS_LAYER_CONTRACTS,
   denverProvider,
   detroitProvider,
   mapDenverFeature,
@@ -244,5 +246,37 @@ describe('ArcGIS city provider wiring', () => {
     expect(outFields).toEqual(expect.arrayContaining([dateField, objectIdField, ...fields]));
     expect(outFields).not.toContain('*');
     expect(new Set(outFields).size).toBe(outFields.length);
+  });
+
+  it('pages DC at 1,000 rows, since some of its servers serve no more, keeping the record budget', async () => {
+    const pageSizes = Object.fromEntries(ARCGIS_LAYER_CONTRACTS.map((contract) => [contract.meta.id, contract.pageSize]));
+    expect(pageSizes).toEqual({
+      'washington-dc': 1000,
+      philadelphia: ARCGIS_PAGE_SIZE,
+      detroit: ARCGIS_PAGE_SIZE,
+      denver: ARCGIS_PAGE_SIZE,
+      nashville: ARCGIS_PAGE_SIZE,
+    });
+
+    const urls: URL[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: string) => {
+      const url = new URL(input);
+      urls.push(url);
+      if (url.searchParams.get('returnCountOnly') === 'true') return new Response(JSON.stringify({ count: 25_000 }));
+      return new Response(JSON.stringify({ features: [] }));
+    }));
+    const batch = await washingtonDcProvider.fetchIncidents({
+      center: washingtonDcProvider.meta.center,
+      radiusMeters: 1000,
+      startEpochMs: Date.parse('2026-09-20T00:00:00Z'),
+      endEpochMs: Date.parse('2026-10-20T00:00:00Z'),
+    });
+    const pages = urls.filter((url) => url.searchParams.has('resultRecordCount'));
+    expect(pages.map((url) => url.searchParams.get('resultRecordCount'))).toEqual(Array(10).fill('1000'));
+    expect(pages.map((url) => Number(url.searchParams.get('resultOffset')))).toEqual(
+      Array.from({ length: 10 }, (_, index) => index * 1000),
+    );
+    expect(batch.recordLimit).toBe(ARCGIS_PAGE_SIZE * ARCGIS_MAX_PAGES);
+    expect(batch.truncated).toBe(true);
   });
 });

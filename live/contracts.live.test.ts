@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { CLUSTER_LABEL_FONT, OPENFREEMAP_STYLES } from '../src/components/mapLayers';
-import { ARCGIS_PAGE_SIZE } from '../src/data/providers/arcgis';
 import { ARCGIS_LAYER_CONTRACTS } from '../src/data/providers/arcgisCities';
 import { fetchJson } from '../src/data/providers/shared';
 import { metadataUrlFromEndpoint } from '../src/data/providers/socrata';
@@ -62,7 +61,7 @@ describe.each(ARCGIS_LAYER_CONTRACTS.map((contract) => [contract.meta.label, con
       expect(fields.get(contract.dateField.toLowerCase())).toBe('esriFieldTypeDate');
       // A smaller server page would silently skip rows between the offsets we request.
       expect(metadata.maxRecordCount, 'the layer serves smaller pages than the client requests')
-        .toBeGreaterThanOrEqual(ARCGIS_PAGE_SIZE);
+        .toBeGreaterThanOrEqual(contract.pageSize);
     });
   },
 );

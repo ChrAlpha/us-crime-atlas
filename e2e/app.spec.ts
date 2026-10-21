@@ -117,6 +117,30 @@ test('mobile layout keeps the map and evidence in a readable document flow', asy
   });
 });
 
+test('keeps the mobile document within the viewport under wide system fonts', async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.startsWith('mobile'), 'Mobile-only layout');
+  // CI runners fall back to wider sans-serif fonts than most desktops; force one so
+  // single-line summaries that cannot shrink show up locally too.
+  await page.addInitScript(() => {
+    document.addEventListener('DOMContentLoaded', () => {
+      const style = document.createElement('style');
+      style.textContent = '* { font-family: "DejaVu Sans", Verdana, sans-serif !important; }';
+      document.head.append(style);
+    });
+  });
+  await mockOfficialSources(page, { nycLagDays: 100 });
+  await page.goto('/?e2e=1');
+  await expect(page.getByTestId('reported-count')).toHaveText('5');
+  await expectNoHorizontalOverflow(page);
+
+  await page.getByRole('button', { name: 'The Loop' }).click();
+  await expect(page.getByTestId('reported-count')).toHaveText('4');
+  await page.getByRole('button', { name: 'Analysis settings' }).click();
+  await page.getByRole('button', { name: '500 m' }).click();
+  await expect(page).toHaveURL(/radius=500/);
+  await expectNoHorizontalOverflow(page);
+});
+
 test('anchors the window to a delayed publisher instead of showing empty recent days', async ({ page }) => {
   await mockOfficialSources(page, { nycLagDays: 100 });
   await page.goto('/?e2e=1');

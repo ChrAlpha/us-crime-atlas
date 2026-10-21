@@ -1,5 +1,7 @@
 import type { Incident, ProviderMeta } from '../../types';
 import {
+  ARCGIS_MAX_PAGES,
+  ARCGIS_PAGE_SIZE,
   arcgisLocalTimestamp,
   attribute,
   createArcgisProvider,
@@ -90,12 +92,16 @@ export interface ArcgisLayerContract {
   dateField: string;
   epochSemantics: ArcgisEpochSemantics;
   outFields: readonly string[];
+  /** Rows requested per page; the layer must serve at least this many. */
+  pageSize: number;
 }
 
 interface LayerConfig {
   layerName: string;
   dateField: string;
   objectIdField: string;
+  /** Overrides `ARCGIS_PAGE_SIZE` for a layer that serves smaller pages. */
+  pageSize?: number;
 }
 
 export const ARCGIS_LAYER_CONTRACTS: ArcgisLayerContract[] = [];
@@ -103,12 +109,16 @@ export const ARCGIS_LAYER_CONTRACTS: ArcgisLayerContract[] = [];
 function cityProvider(config: CityFeatureConfig, layer: LayerConfig) {
   const mapFeature = (feature: ArcgisFeature) => mapCityFeature(feature, config);
   const fields = outFields(config, [layer.objectIdField]);
+  const pageSize = layer.pageSize ?? ARCGIS_PAGE_SIZE;
+  // Smaller pages keep the same total record budget.
+  const maxPages = Math.ceil((ARCGIS_PAGE_SIZE * ARCGIS_MAX_PAGES) / pageSize);
   ARCGIS_LAYER_CONTRACTS.push({
     meta: config.meta,
     layerName: layer.layerName,
     dateField: layer.dateField,
     epochSemantics: config.epochSemantics,
     outFields: fields,
+    pageSize,
   });
   return {
     mapFeature,
@@ -119,6 +129,8 @@ function cityProvider(config: CityFeatureConfig, layer: LayerConfig) {
       objectIdField: layer.objectIdField,
       epochSemantics: config.epochSemantics,
       outFields: fields,
+      pageSize,
+      maxPages,
       mapFeature,
     }),
   };
@@ -163,7 +175,13 @@ const washingtonDc = cityProvider({
   locationFallback: 'Generalized block',
   longitudeFields: ['LONGITUDE'],
   latitudeFields: ['LATITUDE'],
-}, { layerName: 'Crime Incidents - 2026', dateField: 'START_DATE', objectIdField: 'OBJECTID' });
+}, {
+  layerName: 'Crime Incidents - 2026',
+  dateField: 'START_DATE',
+  objectIdField: 'OBJECTID',
+  // DC's load-balanced servers disagree: some serve 2,000 rows per page, others only 1,000.
+  pageSize: 1000,
+});
 
 export const mapWashingtonDcFeature = washingtonDc.mapFeature;
 export const washingtonDcProvider = washingtonDc.provider;

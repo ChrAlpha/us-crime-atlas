@@ -121,7 +121,7 @@ For a selected radius `r`, two provider requests run in parallel:
 - the **comparison query:** the current window across an envelope covering `3r`, so it holds both the selected circle and the nearby annulus;
 - the **previous window** across an envelope covering `r`, because only the selected circle is compared over time.
 
-Each request has its own record budget. It asks the service for a count alongside its first page, then fetches exactly the remaining pages in parallel: up to 4 × 5,000 rows for Socrata and 5 × 2,000 rows for ArcGIS. A request is marked truncated when its count exceeds the budget, or when fewer rows arrive than the count promised (for example, a service that serves smaller pages than requested). Rows are ordered newest first, so truncation drops the oldest rows of that window.
+Each request has its own record budget. It asks the service for a count alongside its first page, then fetches exactly the remaining pages in parallel: up to 4 × 5,000 rows for Socrata and 5 × 2,000 rows for ArcGIS. Washington, DC uses 10 × 1,000, because some of its load-balanced servers serve no more than 1,000 rows per page; the live contract checks each layer's advertised page size against the size the client requests. A request is marked truncated when its count exceeds the budget, or when fewer rows arrive than the count promised (for example, a service that serves smaller pages than requested). Rows are ordered newest first, so truncation drops the oldest rows of that window.
 
 The busy annulus can exhaust the comparison query's budget before the selected circle is complete. When that happens, a third request fetches the selected circle's current window on its own budget, and each consequence is reported separately:
 
