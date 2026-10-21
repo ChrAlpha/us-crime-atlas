@@ -29,6 +29,7 @@ const limitations = [
   'Public coordinates are deliberately blurred. A point must not be interpreted as identifying a particular hotel, business, home, or person.',
   'The nearby land-area comparison does not measure foot traffic, visitors, transit riders, time spent outdoors, lighting, or special events.',
   'A short quiet window does not guarantee safety, while a high historical count does not establish the probability of harm to an individual traveler.',
+  'Outside the local feeds, FBI totals describe a whole city or county. A city-wide rate says nothing about which of its neighborhoods a visitor is in, and agencies submit months on their own schedules.',
 ];
 
 const focusableSelector = [
@@ -183,6 +184,20 @@ export function SourceDialog({ open, activeProvider, onClose }: SourceDialogProp
                 </p>
               </div>
             </div>
+          </section>
+
+          <section data-testid="fbi-method">
+            <h3>Everywhere else: FBI jurisdiction totals</h3>
+            <p className="method-note">
+              Outside the cities with a local incident feed, the atlas falls back to the FBI Crime Data Explorer's
+              monthly violent and property offense counts (summarized SRS and NIBRS) for the agency that polices the
+              point: its city police, else its town or township police, else the county sheriff or county police. Census
+              TIGERweb identifies the city, town, and county. The panel totals the agency's newest twelve reported
+              months, divides by the population the FBI lists for it, and compares that rate with the state's over the
+              same months. Where no agency matches, only the statewide rate is shown, as context. This trades the
+              radius analysis for nationwide coverage: no incident points, no nearby comparison, and no block-level
+              detail.
+            </p>
           </section>
 
           <section>

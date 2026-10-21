@@ -193,12 +193,29 @@ test('labels shared coordinates without a place name as a dropped pin', async ({
   await expect(page).toHaveURL(/e2e=1/);
 });
 
-test('treats a neighboring city inside a feed\'s bounding box as uncovered', async ({ page }) => {
+test('gives a neighboring city inside a feed\'s bounding box its own agency totals', async ({ page }) => {
   await mockOfficialSources(page);
   // Jersey City sits inside the NYC rectangle but outside New York City limits.
   await page.goto('/?e2e=1&lat=40.7282&lng=-74.0776&place=Jersey+City&detail=New+Jersey');
-  await expect(page.getByText('No verified local incident feed')).toBeVisible();
+  await expect(page.getByTestId('jurisdiction-band')).toContainText('Jersey City Police Department');
+  await expect(page.getByTestId('precision-notice')).toBeVisible();
+  await expect(page.locator('.brand-status')).toContainText('FBI jurisdiction totals');
   await expect(page.getByTestId('reported-count')).toHaveCount(0);
+});
+
+test('summarizes the agency that polices an unincorporated area', async ({ page }) => {
+  await mockOfficialSources(page);
+  // East Los Angeles is unincorporated Los Angeles County, policed by the Sheriff.
+  await page.goto('/?e2e=1&lat=34.0239&lng=-118.1728&place=East+Los+Angeles&detail=California');
+  await expect(page.getByTestId('jurisdiction-band')).toContainText("Los Angeles County Sheriff's Office");
+  await expect(page.getByTestId('jurisdiction-band')).toContainText('Los Angeles County');
+});
+
+test('marks a point outside the states as map-only', async ({ page }) => {
+  await mockOfficialSources(page);
+  await page.goto('/?e2e=1&lat=43.6532&lng=-79.3832&place=Toronto');
+  await expect(page.getByTestId('outside-coverage')).toBeVisible();
+  await expect(page.locator('.brand-status')).toContainText('Map only');
 });
 
 test('shows an actionable failure state when an official portal is unavailable', async ({ page }) => {

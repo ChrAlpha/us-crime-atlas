@@ -60,7 +60,9 @@ describe('SourceDialog', () => {
     expect(within(dialog).getByText('5.0×')).toBeInTheDocument();
     expect(within(dialog).getByText('1.3×')).toBeInTheDocument();
     const limitations = within(dialog).getByRole('heading', { name: 'Read these limitations before acting' }).closest('section')!;
-    expect(within(limitations).getAllByRole('listitem')).toHaveLength(5);
+    expect(within(limitations).getAllByRole('listitem')).toHaveLength(6);
+    expect(within(dialog).getByTestId('fbi-method')).toHaveTextContent('FBI Crime Data Explorer');
+    expect(within(dialog).getByTestId('fbi-method')).toHaveTextContent('else the county sheriff or county police');
   });
 
   it('closes with the close button', async () => {

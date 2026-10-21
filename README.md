@@ -20,7 +20,15 @@ The atlas deliberately avoids an opaque “safety score.” It shows observed in
 | San Francisco | San Francisco Police Department | Socrata | Nearby intersection |
 | Seattle | Seattle Police Department | Socrata | Approximate one-hundred block |
 
-The map and place search work throughout the United States. Incident analysis is enabled only inside the legal limits of a city with a verified provider adapter (Census TIGERweb boundaries), so unsupported areas, including neighboring cities such as Jersey City or Beverly Hills, never silently receive fabricated events, a falsely quiet result, a citywide average, or a national proxy.
+The map and place search work throughout the United States. Incident analysis is enabled only inside the legal limits of a city with a verified provider adapter (Census TIGERweb boundaries), so neighboring cities such as Jersey City or Beverly Hills never silently receive another city's events or a falsely quiet result.
+
+## Nationwide fallback: FBI jurisdiction totals
+
+Everywhere else in the 50 states and DC, the atlas trades precision for coverage. It identifies the city, town or township, and county around the point through Census TIGERweb, finds the agency that polices it (city police, else town or township police, else the county sheriff or county police), and shows that agency's newest twelve reported months of violent and property offenses from the FBI Crime Data Explorer: counts, rates per 100,000 residents, the state's rate over the same months, and the change from the previous twelve months.
+
+These figures describe a whole jurisdiction, not the selected radius, and the panel says so on every view. There are no incident points and no nearby comparison; agencies that lag, skip months, or serve fewer than 10,000 residents are called out. Where no agency matches, only the statewide rate is shown, as context. Points outside the states remain map-only.
+
+The FBI snapshot is committed per state in `src/data/agencyStats/` and loaded lazily; regenerate it with `pnpm run data:agencies`.
 
 The current expansion waves add Dallas, Denver, Detroit, Los Angeles, Nashville, Philadelphia, Seattle, and Washington, DC to the original New York City, Chicago, and San Francisco providers. They accept clearly disclosed lower-precision official locations when exact public points are unavailable, but still exclude feeds without usable recent incident-level geometry or a live reviewed endpoint.
 
@@ -77,7 +85,7 @@ pnpm run test:e2e:production   # built bundle under /us-crime-atlas/, as GitHub 
 
 `test:e2e` runs against the dev server, which serves dependencies straight from `node_modules`. `test:e2e:production` builds the site for the Pages subpath and checks that every asset, including MapLibre's bundled worker, loads in a browser; the Pages workflow runs it before every deploy.
 
-City limits are committed in `src/data/jurisdictions.json`; regenerate them from Census TIGERweb with `pnpm run data:jurisdictions` when the Census vintage changes.
+City limits are committed in `src/data/jurisdictions.json`; regenerate them from Census TIGERweb with `pnpm run data:jurisdictions` when the Census vintage changes. The FBI fallback snapshot is committed in `src/data/agencyStats/`; regenerate it with `pnpm run data:agencies` after a Crime Data Explorer refresh (about 30,000 cached requests, resumable).
 
 `test:unit` covers domain logic, provider adapters, hooks, components, the map wrapper (with a mocked MapLibre), and the app shell. Coverage is measured over every source file except the entry point and type declarations; thresholds are 98% lines, statements and functions and 95% branches.
 
@@ -102,6 +110,14 @@ Official Socrata datasets             Official ArcGIS feature layers
                                   │
                 ├── MapLibre clustered GeoJSON layers
                 └── responsive evidence inspector
+
+Outside every local feed:
+   Census TIGERweb point query ── place, county subdivision, county
+                                  │
+   committed FBI CDE snapshot ── city → town/township → county agency
+                                  │
+   summarizeAgency ── newest 12 reported months, rate per 100k,
+                      state rate over the same months, prior-year change
 ```
 
 ```text
@@ -109,6 +125,7 @@ src/
   domain/        pure logic: geo, time, categories, analysis, evidence windows, URL state
   data/
     evidence.ts  newest record → window → parallel current/previous queries
+    agencyStats  FBI jurisdiction snapshot per state, Census point lookup, agency matching
     providers/   socrata.ts, arcgis.ts (backends), socrataCities.ts, arcgisCities.ts (city contracts)
   hooks/         useIncidentAnalysis, usePlaceSearch
   components/    map, panels, dialog; mapLayers.ts holds the map's pure helpers

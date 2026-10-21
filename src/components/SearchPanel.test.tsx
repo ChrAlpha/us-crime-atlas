@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FEATURED_PLACES, providers } from '../data/providers';
 import { clearPlaceSearchCache } from '../hooks/usePlaceSearch';
 import type { SelectedPlace } from '../types';
+import { summarizeAgency, summarizeState } from '../domain/agencySummary';
+import { FULL_AGENCY, fixtureSnapshot, matchFor } from '../test/agencyFixtures';
 import { SearchPanel, type SearchPanelProps } from './SearchPanel';
 
 const NEW_YORK = providers.find((provider) => provider.meta.id === 'new-york')!;
@@ -15,6 +17,7 @@ function props(overrides: Partial<SearchPanelProps> = {}): SearchPanelProps {
     place: TIMES_SQUARE,
     provider: NEW_YORK,
     providerStatus: 'ready',
+    areaSummary: null,
     radiusMeters: 1000,
     windowDays: 30,
     activeGroups: ['violent', 'property', 'vehicle', 'weapons', 'other'],
@@ -169,6 +172,30 @@ describe('SearchPanel', () => {
     expect(strip).toHaveClass('is-unsupported');
     expect(strip).toHaveTextContent('No verified incident feed here yet');
     expect(strip).toHaveTextContent('will not substitute proxy or synthetic crime data');
+  });
+
+  it('names the FBI agency standing in for a missing feed', () => {
+    const snapshot = fixtureSnapshot();
+    const summary = summarizeAgency(matchFor(FULL_AGENCY), snapshot)!;
+    const { rerender } = render(
+      <SearchPanel {...props({ provider: null, providerStatus: 'idle', areaSummary: { kind: 'agency', summary, snapshot } })} />,
+    );
+
+    const strip = screen.getByRole('button', { name: 'Sources & methodology' });
+    expect(strip).toHaveClass('is-coarse');
+    expect(strip).toHaveTextContent('Fixture City Police Department');
+    expect(strip).toHaveTextContent('FBI twelve-month totals for the whole jurisdiction.');
+
+    rerender(
+      <SearchPanel
+        {...props({
+          provider: null,
+          providerStatus: 'idle',
+          areaSummary: { kind: 'state', summary: summarizeState(snapshot), snapshot, agencyName: null },
+        })}
+      />,
+    );
+    expect(strip).toHaveTextContent('California statewide context');
   });
 
   it('flags a provider that failed to respond', () => {

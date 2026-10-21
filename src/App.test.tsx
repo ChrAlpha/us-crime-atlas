@@ -1,17 +1,25 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import App, { MIN_GROUP_MESSAGE, THEME_STORAGE_KEY, TOAST_DURATION_MS } from './App';
+import App, { MIN_GROUP_MESSAGE, sourceIndicator, THEME_STORAGE_KEY, TOAST_DURATION_MS } from './App';
 import type { AtlasMapProps } from './components/AtlasMap';
 import { loadEvidence, type EvidenceRequest } from './data/evidence';
 import { FULL_AREA_COVERAGE, NO_TRUNCATION } from './domain/analysis';
 import { categoryGroup, isViolentCategory, severityForCategory } from './domain/categories';
 import { computeEvidenceWindow } from './domain/evidenceWindow';
 import { DAY_MS, localClockTimestamp } from './domain/time';
+import { loadAgencySnapshot, lookupCensusGeography } from './data/agencyStats';
+import { clearAreaSummaryCache } from './hooks/useAreaSummary';
 import { clearEvidenceCache } from './hooks/useIncidentAnalysis';
+import { fixtureSnapshot, geography } from './test/agencyFixtures';
 import type { CrimeCategory, EvidenceBundle, Incident, IncidentProvider } from './types';
 
 vi.mock('./data/evidence', () => ({ loadEvidence: vi.fn() }));
+vi.mock('./data/agencyStats', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./data/agencyStats')>()),
+  lookupCensusGeography: vi.fn(),
+  loadAgencySnapshot: vi.fn(),
+}));
 
 vi.mock('./components/AtlasMap', () => ({
   AtlasMap: (props: AtlasMapProps) => (
@@ -138,7 +146,15 @@ function installGeolocation(getCurrentPosition: FakeGeolocation['getCurrentPosit
   });
 }
 
+const mockedLookup = vi.mocked(lookupCensusGeography);
+const mockedSnapshot = vi.mocked(loadAgencySnapshot);
+
 beforeEach(() => {
+  clearAreaSummaryCache();
+  mockedLookup.mockReset();
+  mockedLookup.mockResolvedValue(geography());
+  mockedSnapshot.mockReset();
+  mockedSnapshot.mockResolvedValue(fixtureSnapshot());
   clearEvidenceCache();
   mockedLoadEvidence.mockReset();
   mockedLoadEvidence.mockImplementation(async (provider, request) => bundleFor(provider, request));
@@ -279,15 +295,51 @@ describe('App source status', () => {
     expect(mockedLoadEvidence).toHaveBeenCalledTimes(2);
   });
 
-  it('keeps an unsupported place as map-only without requesting records', async () => {
-    setUrl('?lat=39.0997&lng=-94.5786&place=Kansas+City');
+  it('stands in FBI jurisdiction totals where no local feed exists', async () => {
+    setUrl('?lat=35.4676&lng=-97.5164&place=Oklahoma+City');
     await renderApp();
 
-    expect(brandStatus('Map only')).toHaveClass('is-neutral');
-    expect(screen.getByText('No verified local incident feed')).toBeInTheDocument();
-    expect(screen.getByText('No verified incident feed here yet')).toBeInTheDocument();
+    expect(await screen.findByText('FBI jurisdiction totals')).toHaveClass('is-coarse');
+    expect(screen.getByTestId('jurisdiction-band')).toHaveTextContent('Fixture City Police Department');
+    expect(screen.getByRole('button', { name: 'Sources & methodology' })).toHaveClass('is-coarse');
+    expect(mockedLookup).toHaveBeenCalledWith([-97.5164, 35.4676], expect.any(AbortSignal));
     expect(mockedLoadEvidence).not.toHaveBeenCalled();
     expect(screen.getByTestId('map-stub')).toHaveAttribute('data-incidents', '');
+  });
+
+  it('keeps a place outside the states as map-only', async () => {
+    mockedLookup.mockResolvedValue(null);
+    setUrl('?lat=43.6532&lng=-79.3832&place=Toronto');
+    await renderApp();
+
+    expect(await screen.findByText('Map only')).toHaveClass('is-neutral');
+    expect(screen.getByTestId('outside-coverage')).toBeInTheDocument();
+    expect(screen.getByText('No verified incident feed here yet')).toBeInTheDocument();
+  });
+});
+
+describe('sourceIndicator', () => {
+  const idle = { status: 'idle' as const, result: null };
+
+  it('describes local feeds by their load status', () => {
+    expect(sourceIndicator(true, 'loading', idle)).toEqual({ sourceTone: 'loading', sourceStatus: 'Checking official feed' });
+    expect(sourceIndicator(true, 'ready', idle)).toEqual({ sourceTone: 'ready', sourceStatus: 'Official local feed' });
+    expect(sourceIndicator(true, 'error', idle)).toEqual({ sourceTone: 'error', sourceStatus: 'Source unavailable' });
+  });
+
+  it('describes the FBI fallback by what it found', () => {
+    const snapshot = fixtureSnapshot();
+    expect(sourceIndicator(false, 'idle', { status: 'loading', result: null }).sourceStatus).toBe('Finding local agency');
+    expect(sourceIndicator(false, 'idle', { status: 'error', result: null }).sourceTone).toBe('error');
+    expect(sourceIndicator(false, 'idle', {
+      status: 'ready',
+      result: {
+        kind: 'state',
+        snapshot,
+        agencyName: null,
+        summary: { stateName: 'California', startMonth: '2025-08', endMonth: '2026-07', ratesPer100k: null, nationalRatesPer100k: null },
+      },
+    })).toEqual({ sourceTone: 'coarse', sourceStatus: 'Statewide context only' });
   });
 });
 
@@ -305,7 +357,7 @@ describe('App sources dialog', () => {
   });
 
   it('opens from the provider strip without a current source for unsupported places', async () => {
-    setUrl('?lat=39.0997&lng=-94.5786&place=Kansas+City');
+    setUrl('?lat=35.4676&lng=-97.5164&place=Oklahoma+City');
     const { user } = await renderApp();
     await user.click(screen.getByRole('button', { name: 'Sources & methodology' }));
     const dialog = screen.getByRole('dialog', { name: 'Sources & methodology' });

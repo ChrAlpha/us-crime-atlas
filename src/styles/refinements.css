@@ -38,6 +38,18 @@
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--amber) 14%, transparent);
 }
 
+/* FBI jurisdiction totals: usable, but coarser than a local incident feed. */
+.brand-status.is-coarse .live-dot,
+.provider-strip.is-coarse .provider-dot {
+  background: var(--amber);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--amber) 14%, transparent);
+}
+
+.timeline__bar.is-missing {
+  background: var(--ink-tertiary);
+  opacity: 0.35;
+}
+
 .brand-status.is-neutral .live-dot {
   background: var(--ink-tertiary);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink-tertiary) 12%, transparent);

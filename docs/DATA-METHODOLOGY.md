@@ -36,7 +36,7 @@ Each provider declares:
 - coverage caveats;
 - the date on which the field contract was last verified.
 
-The application does not substitute synthetic events, a citywide aggregate, or a national average when a local incident-level provider is unavailable.
+The application never substitutes synthetic events. Where no local incident-level provider covers a point, it falls back, visibly, to FBI jurisdiction totals (see [Nationwide fallback](#nationwide-fallback-fbi-jurisdiction-totals)); those are never blended with, or presented as, incident evidence.
 
 Candidate sources are deferred when the current official publication lacks usable public coordinates or the reviewed machine-readable endpoint is no longer live. Coverage count is not treated as evidence quality.
 
@@ -113,6 +113,43 @@ Each feed only contains incidents inside its own police jurisdiction, so coverag
 - **Covered area.** Near the limits, part of the circle or annulus has no records because it belongs to another jurisdiction or lies beyond a shoreline boundary. The share of each area inside the limits is estimated from 1,024 equal-area samples, and densities divide by the covered area only. Without this correction, a waterfront or border location reads as more active than it is. At the 1 km default, about 12% of the Times Square annulus lies in New Jersey, and about 23% of the Loop's lies on Lake Michigan.
 - **Disclosure and limits.** The panel says how much of either area lies outside the limits whenever it is more than 5%. If less than 25% of either area is covered, the nearby comparison is withheld.
 - **Water inside the limits.** Some cities' legal limits include open water (San Francisco Bay, New York Harbor). That water counts as covered area with no incidents, so the correction removes the bias only where the limits follow the shoreline.
+
+## Nationwide fallback: FBI jurisdiction totals
+
+Local incident feeds cover a few cities. Everywhere else in the 50 states and DC, the atlas shows coarser evidence rather than nothing.
+
+### Source
+
+The FBI Crime Data Explorer's summarized offenses known to law enforcement: monthly violent and property offense counts per reporting agency, combining SRS submissions and summarized NIBRS, with the population the FBI assigns to each agency. The Explorer sends no CORS headers, so `scripts/fetch-agency-stats.mjs` takes a snapshot of every city and county agency (about 15,000) and commits it per state in `src/data/agencyStats/`. Each state's file loads only when a point in that state needs it.
+
+Agencies submit on their own schedules. The snapshot therefore ends three months before the Explorer's refresh month (two months before a mid-October refresh, Texas had reported only about three quarters of a normal month), and each agency's twelve-month window ends at its own newest reported month. Trailing zero months from an agency that normally reports ten or more offenses a month are treated as unsubmitted, not quiet.
+
+### Matching a point to an agency
+
+1. Census TIGERweb returns the incorporated place and the county subdivision containing the point (the subdivision's GEOID also identifies the state and county).
+2. The place's own police agency is used when one was matched.
+3. Otherwise the town or township agency of the county subdivision (New England towns, Mid-Atlantic and Midwest townships).
+4. Otherwise the county agency: the county sheriff or county police serving the most residents, with reviewed overrides where a city agency patrols unincorporated land (Las Vegas Metropolitan Police for unincorporated Clark County, including the Strip; Honolulu Police for the City and County of Honolulu).
+5. If the point lies inside a city that has no matched agency of its own (for example a city that contracts with the sheriff), the county agency's totals are shown with a note that they may not include the city.
+6. If no agency matches, or the matched agency submitted nothing, only the statewide rate is shown, as context.
+
+Agencies are matched to Census places and county subdivisions by normalized name within the state ("St." and "Saint", "Mt." and "Mount", suffixes such as "Police Department" or "Township"), consolidated-government names ("Nashville-Davidson", "Louisville/Jefferson County"), and parenthetical alternates ("San Buenaventura (Ventura)"). Ambiguous names are resolved by the agency's county, then by distance from its listed location. When several agencies claim one area, the one serving the most residents is kept. The generator reports the share of reporting population that was matched and lists the largest unmatched agencies.
+
+### What the panel shows
+
+- Violent and property offense counts over the agency's newest twelve reported months.
+- Rates per 100,000 residents, annualized when fewer than twelve months were submitted (at least six are required).
+- The state's rate over the same months (from the Explorer's rates per 100,000 residents of reporting agencies), and the ratio to it, banded with the local comparison's thresholds.
+- The change from the previous twelve months, only when both windows are complete.
+- Monthly totals, with unreported months marked.
+
+### Limitations specific to the fallback
+
+- A jurisdiction-wide rate cannot tell one neighborhood from another; a downtown hotel and a quiet suburb in the same city get the same figures.
+- Resident population is a poor denominator for downtowns, airports and tourist districts, so central-city rates read high relative to their state.
+- Cities are compared with their state, which includes rural areas with lower rates.
+- Agencies that report late, skip months, or serve few residents are called out, but their figures remain less reliable.
+- Name matching can miss agencies whose names differ from their Census place, and some places (for example census-designated places with police districts) are not matched at all.
 
 ## Query geometry and record limits
 

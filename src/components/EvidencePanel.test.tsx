@@ -25,6 +25,8 @@ import {
   windowRangeLabel,
   type EvidencePanelProps,
 } from './EvidencePanel';
+import { summarizeAgency } from '../domain/agencySummary';
+import { FULL_AGENCY, fixtureSnapshot, matchFor } from '../test/agencyFixtures';
 
 const CENTER: Coordinates = [-73.9855, 40.758];
 /** About 1.7 km east of the center: inside the 1 km comparator annulus. */
@@ -145,11 +147,14 @@ function analysisFor(evidence: EvidenceBundle, radiusMeters = 1000): AnalysisRes
   });
 }
 
+const IDLE_AREA_SUMMARY = { status: 'idle', result: null, error: null, refresh: vi.fn() } as const;
+
 function props(overrides: Partial<EvidencePanelProps> = {}): EvidencePanelProps {
   const evidence = overrides.evidence === undefined ? evidenceFor(CURRENT_WINDOW) : overrides.evidence;
   return {
     place: PLACE,
     provider: PROVIDER,
+    areaSummary: IDLE_AREA_SUMMARY,
     status: 'ready',
     analysis: evidence ? analysisFor(evidence, overrides.radiusMeters) : null,
     evidence,
@@ -169,19 +174,54 @@ function panel() {
 }
 
 describe('EvidencePanel states', () => {
-  it('explains an uncovered place without fabricating a result', async () => {
-    const onOpenSources = vi.fn();
-    const user = userEvent.setup();
-    render(<EvidencePanel {...props({ provider: null, status: 'idle', evidence: null, analysis: null, onOpenSources })} />);
+  it('shows FBI jurisdiction totals for an uncovered place', () => {
+    const snapshot = fixtureSnapshot();
+    const summary = summarizeAgency(matchFor(FULL_AGENCY), snapshot)!;
+    render(<EvidencePanel {...props({
+      provider: null,
+      status: 'idle',
+      evidence: null,
+      analysis: null,
+      areaSummary: { status: 'ready', result: { kind: 'agency', summary, snapshot }, error: null, refresh: vi.fn() },
+    })} />);
 
-    expect(panel()).toHaveClass('evidence-panel--compact');
-    expect(panel()).toHaveTextContent('No verified local incident feed');
-    expect(panel()).toHaveTextContent('Times Square is outside the first-release city coverage.');
+    expect(panel()).not.toHaveClass('evidence-panel--compact');
+    expect(panel()).toHaveTextContent('Jurisdiction totals · 12 months · FBI Crime Data Explorer');
+    expect(screen.getByTestId('jurisdiction-band')).toHaveTextContent('Fixture City Police Department');
     expect(screen.queryByRole('button', { name: 'Refresh official incident data' })).not.toBeInTheDocument();
     expect(screen.queryByTestId('reported-count')).not.toBeInTheDocument();
+  });
 
-    await user.click(screen.getByRole('button', { name: 'Review current coverage' }));
-    expect(onOpenSources).toHaveBeenCalledOnce();
+  it('waits for the jurisdiction lookup, and retries a failed one', async () => {
+    const refresh = vi.fn();
+    const user = userEvent.setup();
+    const base = { provider: null, status: 'idle' as const, evidence: null, analysis: null };
+    const { rerender } = render(<EvidencePanel {...props({
+      ...base,
+      areaSummary: { status: 'loading', result: null, error: null, refresh },
+    })} />);
+    expect(screen.getByRole('status')).toHaveTextContent('Loading official incident records');
+
+    rerender(<EvidencePanel {...props({
+      ...base,
+      areaSummary: { status: 'error', result: null, error: 'Census TIGERweb returned HTTP 503', refresh },
+    })} />);
+    expect(panel()).toHaveClass('evidence-panel--compact');
+    expect(screen.getByRole('alert')).toHaveTextContent('Census TIGERweb returned HTTP 503');
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+
+  it('keeps a place outside the states compact', () => {
+    render(<EvidencePanel {...props({
+      provider: null,
+      status: 'idle',
+      evidence: null,
+      analysis: null,
+      areaSummary: { status: 'ready', result: { kind: 'outside' }, error: null, refresh: vi.fn() },
+    })} />);
+    expect(panel()).toHaveClass('evidence-panel--compact');
+    expect(panel()).toHaveTextContent('Outside United States coverage');
   });
 
   it('shows a source-specific failure with a retry action', async () => {
