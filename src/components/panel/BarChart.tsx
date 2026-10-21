@@ -1,7 +1,8 @@
 import { useState, type CSSProperties, type PointerEvent } from 'react';
 
 export interface BarChartProps {
-  values: readonly number[];
+  /** `null` marks a period with no published value, drawn as a hollow stub rather than a zero. */
+  values: ReadonlyArray<number | null>;
   /** Readout label for each bar, e.g. `Jun 12` or `3 PM`. */
   labels: readonly string[];
   ticks: ReadonlyArray<{ index: number; label: string }>;
@@ -17,7 +18,7 @@ export interface BarChartProps {
 /** A single-series column chart with a hover readout; one hue, thin marks, recessive axis. */
 export function BarChart({ values, labels, ticks, shaded, summary, idleReadout, unit }: BarChartProps) {
   const [active, setActive] = useState<number | null>(null);
-  const max = Math.max(1, ...values);
+  const max = Math.max(1, ...values.map((value) => value ?? 0));
 
   const track = (event: PointerEvent<HTMLDivElement>) => {
     const box = event.currentTarget.getBoundingClientRect();
@@ -26,7 +27,11 @@ export function BarChart({ values, labels, ticks, shaded, summary, idleReadout, 
     setActive(Math.min(values.length - 1, Math.max(0, index)));
   };
 
-  const readout = active === null ? idleReadout : `${labels[active]}: ${unit(values[active] ?? 0)}`;
+  let readout = idleReadout;
+  if (active !== null) {
+    const value = values[active];
+    readout = `${labels[active]}: ${value === null || value === undefined ? 'not reported' : unit(value)}`;
+  }
 
   return (
     <figure className="bars">
@@ -39,8 +44,9 @@ export function BarChart({ values, labels, ticks, shaded, summary, idleReadout, 
         role="img"
       >
         {values.map((value, index) => {
-          const style = { '--h': `${value === 0 ? 0 : Math.max(4, (value / max) * 100)}%` } as CSSProperties;
+          const style = { '--h': `${!value ? 0 : Math.max(4, (value / max) * 100)}%` } as CSSProperties;
           const classes = ['bars__col'];
+          if (value === null) classes.push('is-missing');
           if (shaded?.(index)) classes.push('is-shaded');
           if (active === index) classes.push('is-active');
           return (

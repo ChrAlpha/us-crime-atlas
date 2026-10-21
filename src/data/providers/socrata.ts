@@ -28,6 +28,11 @@ export type SocrataSchema<Key extends string> =
   | { fields: ResolvedSocrataFields<Key> }
   | { aliases: SocrataAliasMap<Key>; requiredKeys: readonly Key[] };
 
+/** A Socrata provider that can report the dataset fields it binds. */
+export type SocrataResolvable<Key extends string = string> = IncidentProvider & {
+  resolveFields(signal?: AbortSignal): Promise<ResolvedSocrataFields<Key>>;
+};
+
 export interface SocrataProviderConfig<Key extends string> {
   meta: ProviderMeta;
   schema: SocrataSchema<Key>;
@@ -42,6 +47,11 @@ export interface SocrataProviderConfig<Key extends string> {
   mapRow(row: Record<string, unknown>, fields: ResolvedSocrataFields<Key>): Incident | null;
   pageSize?: number;
   maxPages?: number;
+  /**
+   * A reviewed SoQL predicate added to every query (for example a crime-type allowlist on a
+   * calls-for-service feed), so excluded rows never spend the record budget.
+   */
+  filter?: string;
 }
 
 interface SocrataMetadata {
@@ -173,6 +183,7 @@ function queryWhere<Key extends string>(
     `${date} >= ${dayLiteral(query.startEpochMs)}`,
     `${date} < ${dayLiteral(query.endEpochMs + DAY_MS - 1)}`,
     ...geometryPredicates(config, fields, boundingBoxForRadius(query.center, query.radiusMeters)),
+    ...(config.filter ? [`(${config.filter})`] : []),
   ].join(' AND ');
 }
 
@@ -222,6 +233,7 @@ export function buildSocrataLatestUrl<Key extends string>(
     $where: [
       `${date} >= ${dayLiteral(today - LATEST_RECORD_LOOKBACK_DAYS * DAY_MS)}`,
       `${date} < ${dayLiteral(today + DAY_MS)}`,
+      ...(config.filter ? [`(${config.filter})`] : []),
     ].join(' AND '),
   });
   return `${config.meta.endpoint}?${params.toString()}`;
@@ -238,7 +250,7 @@ export function parseSocrataLatest(payload: unknown, agency: string): number | n
 
 export function createSocrataProvider<Key extends string>(
   config: SocrataProviderConfig<Key>,
-): IncidentProvider & { resolveFields(signal?: AbortSignal): Promise<ResolvedSocrataFields<Key>> } {
+): SocrataResolvable<Key> {
   const { schema, meta } = config;
   const pageSize = config.pageSize ?? SOCRATA_PAGE_SIZE;
   const maxPages = config.maxPages ?? SOCRATA_MAX_PAGES;

@@ -134,6 +134,36 @@ describe('ArcGIS query URLs', () => {
   });
 });
 
+describe('ArcGIS layer options', () => {
+  it('requests WGS84 geometry from layers without coordinate attributes', () => {
+    const search = new URL(buildArcgisQueryUrl(config({ returnGeometry: true }), QUERY)).searchParams;
+    expect(search.get('returnGeometry')).toBe('true');
+    expect(search.get('outSR')).toBe('4326');
+    // The count must evaluate the envelope exactly as the pages do.
+    expect(new URL(buildArcgisCountUrl(config({ returnGeometry: true }), QUERY)).searchParams.get('outSR')).toBe('4326');
+    expect(new URL(buildArcgisCountUrl(config(), QUERY)).searchParams.has('outSR')).toBe(false);
+  });
+
+  it('adds a reviewed filter to every query, including the newest-record lookup', () => {
+    const filtered = config({ filter: "Agency='IMPD' OR Agency='IMPD2'" });
+    expect(new URL(buildArcgisQueryUrl(filtered, QUERY)).searchParams.get('where'))
+      .toMatch(/ AND \(Agency='IMPD' OR Agency='IMPD2'\)$/);
+    expect(new URL(buildArcgisCountUrl(filtered, QUERY)).searchParams.get('where')).toContain("(Agency='IMPD'");
+    expect(new URL(buildArcgisLatestUrl(filtered, Date.parse('2026-10-21T10:15:00Z'))).searchParams.get('where'))
+      .toMatch(/ AND \(Agency='IMPD' OR Agency='IMPD2'\)$/);
+  });
+
+  it('bounds a table by its coordinate attributes instead of envelope geometry', () => {
+    const table = config({ coordinateAttributes: { latitude: 'Latitude', longitude: 'Longitude' } });
+    const search = new URL(buildArcgisQueryUrl(table, QUERY)).searchParams;
+    expect(search.has('geometry')).toBe(false);
+    expect(search.has('geometryType')).toBe(false);
+    expect(search.get('where')).toMatch(
+      /AND Latitude >= 42\.30\d+ AND Latitude <= 42\.35\d+ AND Longitude >= -83\.08\d+ AND Longitude <= -83\.00\d+$/,
+    );
+  });
+});
+
 describe('ArcGIS epoch semantics', () => {
   it('converts true UTC instants into the publisher clock across daylight saving', () => {
     // Detroit publishes incident_time 02:05 for an epoch of 06:05 UTC during EDT.

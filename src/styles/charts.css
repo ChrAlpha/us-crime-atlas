@@ -42,9 +42,22 @@
   transition: opacity 120ms var(--ease-out);
 }
 
+.bars__col.is-missing i {
+  height: 6px;
+  border: 1px dashed var(--ink-3);
+  border-bottom: 0;
+  background: transparent;
+  opacity: 1;
+}
+
 .bars__col.is-active i {
   background: var(--ink-1);
   opacity: 1;
+}
+
+.bars__col.is-missing.is-active i {
+  border-color: var(--ink-1);
+  background: transparent;
 }
 
 .bars__axis {

@@ -27,9 +27,9 @@ export async function expectMapReady(page: Page, theme: 'light' | 'dark' = 'ligh
   await expect(page.locator('.map-stage')).toHaveAttribute('data-map-ready', 'true');
 }
 
-/** Picks one of the covered places from the search menu. */
+/** Types a covered place's name, which filters the search menu locally, then picks it. */
 export async function goToCoveredPlace(page: Page, label: string): Promise<void> {
-  await page.locator('#place-query').click();
+  await page.locator('#place-query').fill(label);
   const menu = page.getByRole('region', { name: 'Search suggestions' });
   await menu.getByRole('button', { name: new RegExp(`^${label}\\b`) }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(label);

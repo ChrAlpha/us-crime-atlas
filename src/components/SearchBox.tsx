@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { FEATURED_PLACES, findProviderForPoint } from '../data/providers';
+import { haversineDistance } from '../domain/geo';
 import { usePlaceSearch } from '../hooks/usePlaceSearch';
-import type { SelectedPlace } from '../types';
+import type { Coordinates, SelectedPlace } from '../types';
 import { ArrowRightIcon, CloseIcon, LocateIcon, PinIcon, SearchIcon } from './Icons';
 
 export interface SearchBoxProps {
@@ -16,13 +17,17 @@ function samePoint(left: SelectedPlace, right: SelectedPlace) {
     && Math.abs(left.coordinates[1] - right.coordinates[1]) < 0.0001;
 }
 
-/** Covered cities that match what has been typed so far, without a network request. */
-export function matchingFeaturedPlaces(query: string): readonly SelectedPlace[] {
+/** Covered places listed at once; the rest are a few keystrokes away. */
+export const SUGGESTION_LIMIT = 6;
+
+/** Covered places matching what has been typed so far, nearest first, without a network request. */
+export function matchingFeaturedPlaces(query: string, from: Coordinates): SelectedPlace[] {
   const needle = query.trim().toLowerCase();
-  if (!needle) return FEATURED_PLACES;
-  return FEATURED_PLACES.filter((featured) => (
-    `${featured.label} ${featured.detail}`.toLowerCase().includes(needle)
-  ));
+  const matches = needle
+    ? FEATURED_PLACES.filter((featured) => `${featured.label} ${featured.detail}`.toLowerCase().includes(needle))
+    : [...FEATURED_PLACES];
+  const distance = new Map(matches.map((featured) => [featured, haversineDistance(from, featured.coordinates)]));
+  return matches.sort((left, right) => distance.get(left)! - distance.get(right)!);
 }
 
 function isTypingTarget(target: EventTarget | null) {
@@ -82,7 +87,9 @@ export function SearchBox({ place, locating, onPlaceSelect, onLocate }: SearchBo
   };
 
   const hasResults = search.results.length > 0;
-  const suggestions = matchingFeaturedPlaces(query);
+  const suggestions = matchingFeaturedPlaces(query, place.coordinates);
+  const shown = suggestions.slice(0, SUGGESTION_LIMIT);
+  const hidden = suggestions.length - shown.length;
   const showSuggestions = !hasResults && search.status !== 'loading';
 
   return (
@@ -183,7 +190,7 @@ export function SearchBox({ place, locating, onPlaceSelect, onLocate }: SearchBo
                 <>
                   <h2 className="search__heading" id="covered-places-heading">Places with official incident data</h2>
                   <ul aria-labelledby="covered-places-heading" className="search__list">
-                    {suggestions.map((featured) => {
+                    {shown.map((featured) => {
                       const current = samePoint(place, featured);
                       return (
                         <li key={featured.label}>
@@ -204,6 +211,13 @@ export function SearchBox({ place, locating, onPlaceSelect, onLocate }: SearchBo
                       );
                     })}
                   </ul>
+                  {hidden > 0 ? (
+                    <p className="search__more">
+                      {query.trim()
+                        ? `${hidden} more ${hidden === 1 ? 'place matches' : 'places match'}. Keep typing to narrow the list.`
+                        : `Nearest ${shown.length} of ${suggestions.length}. Type a city or state to find the rest.`}
+                    </p>
+                  ) : null}
                 </>
               ) : null}
             </>

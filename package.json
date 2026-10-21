@@ -21,6 +21,7 @@
     "test:runtime": "vitest run --config vitest.live.config.ts live/runtime.live.test.ts",
     "test:contracts": "vitest run --config vitest.live.config.ts",
     "data:jurisdictions": "node scripts/fetch-jurisdictions.mjs",
+    "data:agencies": "node scripts/fetch-agency-stats.mjs",
     "check": "pnpm run typecheck && pnpm run test:unit && pnpm run build"
   },
   "dependencies": {

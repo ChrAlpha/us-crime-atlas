@@ -1,3 +1,4 @@
+import { normalizeCategory } from '../../domain/categories';
 import { combineDateAndTime } from '../../domain/time';
 import type { Incident, ProviderMeta } from '../../types';
 import { buildIncident, joinLabels, roundCoordinates } from './incident';
@@ -10,9 +11,9 @@ import {
   type SocrataAliasMap,
 } from './socrata';
 
-type Row = Record<string, unknown>;
+export type Row = Record<string, unknown>;
 
-type FieldKey =
+export type FieldKey =
   | 'id'
   | 'secondaryId'
   | 'date'
@@ -28,7 +29,7 @@ type FieldKey =
   | 'longitude'
   | 'point';
 
-type Fields = ResolvedSocrataFields<FieldKey>;
+export type Fields = ResolvedSocrataFields<FieldKey>;
 
 const NO_FIELDS: Fields = {
   id: null,
@@ -47,16 +48,16 @@ const NO_FIELDS: Fields = {
   point: null,
 };
 
-function fields(overrides: Partial<Fields>): Fields {
+export function fields(overrides: Partial<Fields>): Fields {
   return { ...NO_FIELDS, ...overrides };
 }
 
-function aliases(overrides: Partial<SocrataAliasMap<FieldKey>>): SocrataAliasMap<FieldKey> {
+export function aliases(overrides: Partial<SocrataAliasMap<FieldKey>>): SocrataAliasMap<FieldKey> {
   const empty = Object.fromEntries(Object.keys(NO_FIELDS).map((key) => [key, []])) as unknown as SocrataAliasMap<FieldKey>;
   return { ...empty, ...overrides };
 }
 
-const COORDINATE_KEYS = { latitudeKey: 'latitude', longitudeKey: 'longitude', pointKey: 'point' } as const;
+export const COORDINATE_KEYS = { latitudeKey: 'latitude', longitudeKey: 'longitude', pointKey: 'point' } as const;
 
 /** Reads an `HHMM` number (LAPD) or `HH:MM` text time (Dallas) as `HH:MM:00`, or `null`. */
 export function localClock(timeValue: unknown): string | null {
@@ -78,7 +79,7 @@ export function localTimestamp(dateValue: string, timeValue: unknown): string {
   return combineDateAndTime(dateValue, localClock(timeValue) ?? undefined);
 }
 
-interface RowOptions {
+export interface RowOptions {
   /** Combine the date column with a separate time column. */
   combineTime?: boolean;
   locationFallback: string;
@@ -87,7 +88,7 @@ interface RowOptions {
   locationKeys?: readonly FieldKey[];
 }
 
-function incidentFromRow(meta: ProviderMeta, row: Row, fieldMap: Fields, options: RowOptions): Incident | null {
+export function incidentFromRow(meta: ProviderMeta, row: Row, fieldMap: Fields, options: RowOptions): Incident | null {
   const coordinates = resolvedCoordinates(row, fieldMap, COORDINATE_KEYS);
   const sourceDate = resolvedText(row, fieldMap, 'date');
   if (!coordinates || !sourceDate) return null;
@@ -286,6 +287,61 @@ export const sanFranciscoProvider = createSocrataProvider<FieldKey>({
   dateKey: 'date',
   ...COORDINATE_KEYS,
   mapRow: mapSanFranciscoRow,
+});
+
+// ── Oakland ──────────────────────────────────────────────────────────────────
+
+export const OAKLAND_META: ProviderMeta = {
+  id: 'oakland',
+  city: 'Oakland',
+  state: 'CA',
+  label: 'Oakland, California',
+  agency: 'Oakland Police Department',
+  datasetName: 'CrimeWatch Data',
+  endpoint: 'https://data.oaklandca.gov/resource/ppgh-7dqv.json',
+  sourceUrl: 'https://data.oaklandca.gov/d/ppgh-7dqv',
+  timeZone: 'America/Los_Angeles',
+  center: [-122.2712, 37.8044],
+  zoom: 11.4,
+  bounds: { west: -122.36, south: 37.7, east: -122.11, north: 37.89 },
+  cadence: 'Updated daily',
+  delayNote: 'CrimeWatch reports publish after entry into the records system; the newest days keep filling in.',
+  settlingDays: 3,
+  datasetStart: null,
+  precision: 'block',
+  precisionNote: 'Locations are published as a block address and its geocoded point, not a premises.',
+  coverageNote: 'One case can list several offenses as separate rows; a case\'s crime type can differ from an offense row\'s description.',
+  lastVerified: '2026-10-21',
+};
+
+const OAKLAND_FIELDS = fields({
+  id: 'casenumber',
+  secondaryId: 'description',
+  date: 'datetime',
+  category: 'crimetype',
+  description: 'description',
+  location: 'address',
+  area: 'policebeat',
+  point: 'location',
+});
+
+export function mapOaklandRow(row: Row): Incident | null {
+  return incidentFromRow(OAKLAND_META, row, OAKLAND_FIELDS, {
+    locationFallback: 'Published block',
+    locationKeys: ['location'],
+    // A case's crime type is shared by all of its offense rows; the row's own description is specific.
+    classificationText: (_source, _map, rawCategory, description) => (
+      normalizeCategory(description) === 'other' ? `${description} ${rawCategory}` : description
+    ),
+  });
+}
+
+export const oaklandProvider = createSocrataProvider<FieldKey>({
+  meta: OAKLAND_META,
+  schema: { fields: OAKLAND_FIELDS },
+  dateKey: 'date',
+  ...COORDINATE_KEYS,
+  mapRow: mapOaklandRow,
 });
 
 // ── Los Angeles (aliases resolved from live metadata) ─────────────────────────

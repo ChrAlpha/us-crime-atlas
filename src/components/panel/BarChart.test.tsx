@@ -47,6 +47,45 @@ describe('BarChart', () => {
     expect(columns().map((column) => column.style.getPropertyValue('--h'))).toEqual(['0%', '0%', '0%', '0%']);
   });
 
+  it('draws an unreported period as a hollow stub rather than a zero', () => {
+    const { columns } = renderChart({ values: [0, null, 50, 100], shaded: (index) => index === 1 });
+
+    expect(columns().map((column) => column.className)).toEqual([
+      'bars__col',
+      'bars__col is-missing is-shaded',
+      'bars__col',
+      'bars__col',
+    ]);
+    expect(columns().map((column) => column.style.getPropertyValue('--h'))).toEqual(['0%', '0%', '50%', '100%']);
+  });
+
+  it('scales to the tallest reported value, ignoring unreported periods', () => {
+    const { columns } = renderChart({ values: [null, 20, null, 10] });
+
+    expect(columns().map((column) => column.style.getPropertyValue('--h'))).toEqual(['0%', '100%', '0%', '50%']);
+    expect(columns().map((column) => column.classList.contains('is-missing'))).toEqual([true, false, true, false]);
+  });
+
+  it('draws a series with nothing reported flat and hollow', () => {
+    const { columns } = renderChart({ values: [null, null, null, null] });
+
+    expect(columns().map((column) => column.style.getPropertyValue('--h'))).toEqual(['0%', '0%', '0%', '0%']);
+    expect(columns().every((column) => column.classList.contains('is-missing'))).toBe(true);
+  });
+
+  it('reads out an unreported period under the pointer', () => {
+    const { plot, readout, columns } = renderChart({ values: [0, null, 50, 100] });
+    stubBox(plot, { left: 0, width: 400 });
+
+    fireEvent.pointerMove(plot, { clientX: 150 });
+    expect(readout).toHaveTextContent(/^Tue: not reported$/);
+    expect(columns()[1]).toHaveClass('is-missing', 'is-active');
+
+    fireEvent.pointerMove(plot, { clientX: 50 });
+    expect(readout).toHaveTextContent(/^Mon: 0 reports$/);
+    expect(columns()[0]).not.toHaveClass('is-missing');
+  });
+
   it('shades the bars the caller marks', () => {
     const { columns } = renderChart({ shaded: (index) => index % 2 === 1 });
     expect(columns().map((column) => column.className)).toEqual([

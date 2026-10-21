@@ -70,14 +70,26 @@ test('captures source failure and unsupported-place states', async ({ page }, te
   await page.screenshot({ path: `test-results/${name}-viewport-error.png` });
 
   await page.goto('/?e2e=1&lat=35.4676&lng=-97.5164&place=Oklahoma+City&detail=Oklahoma');
-  await expect(page.getByTestId('no-feed-state')).toBeVisible();
-  await expect(page.locator('.place__source')).toContainText('Map only');
+  await expect(page.locator('.place__source')).toContainText('Oklahoma City Police Department');
+  await expect(page.getByTestId('jurisdiction-finding')).toBeVisible();
   await expectMapReady(page);
   await expect(page.getByRole('group', { name: 'Map key' })).toHaveCount(0);
-  await page.screenshot({ path: `test-results/${name}-viewport-unsupported.png` });
+  // On phones the answer is readable without raising the sheet.
+  await expect(page.locator('.finding__headline')).toBeInViewport();
+  await page.screenshot({ path: `test-results/${name}-viewport-jurisdiction.png` });
   await raisePanel(page, testInfo);
+  await expect(page.getByRole('heading', { name: 'Month by month' })).toBeAttached();
+  await page.screenshot({ path: `test-results/${name}-viewport-jurisdiction-detail.png` });
+
+  await page.goto('/?e2e=1&lat=43.6532&lng=-79.3832&place=Toronto&detail=Ontario');
+  await expect(page.getByTestId('outside-coverage')).toBeVisible();
+  await expect(page.locator('.place__source')).toContainText('Map only');
+  await expectMapReady(page);
+  await page.screenshot({ path: `test-results/${name}-viewport-outside.png` });
+  await raisePanel(page, testInfo);
+  // Without any data here, the list of covered cities is unfolded.
   await expect(page.getByRole('button', { name: 'Go to Times Square' })).toBeVisible();
-  await page.screenshot({ path: `test-results/${name}-viewport-unsupported-detail.png` });
+  await page.screenshot({ path: `test-results/${name}-viewport-outside-detail.png` });
 });
 
 test('captures an expanded report', async ({ page }, testInfo) => {

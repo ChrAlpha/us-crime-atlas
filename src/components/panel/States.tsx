@@ -1,11 +1,11 @@
 import { delayedFeedCopy } from '../../domain/presentation';
-import type { EvidenceBundle, IncidentProvider, SelectedPlace } from '../../types';
+import type { EvidenceBundle } from '../../types';
 import { InfoIcon, RefreshIcon, WarningIcon } from '../Icons';
 
-export function LoadingSummary({ provider }: { provider: IncidentProvider }) {
+export function LoadingSummary({ label }: { label: string }) {
   return (
     <div aria-live="polite" className="loading" role="status">
-      <span className="sr-only">Loading official {provider.meta.city} incident records</span>
+      <span className="sr-only">{label}</span>
       <span aria-hidden="true" className="skeleton skeleton--headline" />
       <span aria-hidden="true" className="skeleton skeleton--headline skeleton--short" data-peek-end />
       <span aria-hidden="true" className="skeleton skeleton--scale" />
@@ -15,11 +15,11 @@ export function LoadingSummary({ provider }: { provider: IncidentProvider }) {
 }
 
 export function ErrorSummary({
-  provider,
+  title,
   error,
   onRefresh,
 }: {
-  provider: IncidentProvider;
+  title: string;
   error: string | null;
   onRefresh(): void;
 }) {
@@ -27,8 +27,8 @@ export function ErrorSummary({
     <div className="state state--error" role="alert">
       <WarningIcon className="state__icon" size={20} />
       <div>
-        <h2>Couldn't load {provider.meta.city} police records</h2>
-        <p>{error || 'The official publisher did not return a usable response.'} Nothing is shown rather than a guess.</p>
+        <h2>{title}</h2>
+        <p>{error || 'The official source did not return a usable response.'} Nothing is shown rather than a guess.</p>
         <button className="button" data-peek-end onClick={onRefresh} type="button">
           <RefreshIcon size={16} />
           Try again
@@ -47,21 +47,6 @@ export function NoRecordsSummary({ evidence }: { evidence: EvidenceBundle }) {
         <p>
           {delayedFeedCopy(evidence.window, evidence.provider.cadence)} Without published records there is nothing to
           count or compare, so no figures are shown.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-export function NoFeedSummary({ place }: { place: SelectedPlace }) {
-  return (
-    <div className="state" data-testid="no-feed-state">
-      <InfoIcon className="state__icon" size={20} />
-      <div>
-        <h2 data-peek-end>No official incident feed here yet</h2>
-        <p>
-          {place.label} is outside the cities with a verified police incident feed. The map still works, but the atlas
-          never fills the gap with estimates, a national average, or another city's data.
         </p>
       </div>
     </div>

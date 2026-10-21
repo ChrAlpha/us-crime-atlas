@@ -1,12 +1,15 @@
 import { JURISDICTION_SOURCE } from '../../data/jurisdictions';
 import { FEATURED_PLACES, findProviderForPoint, providerMetadata } from '../../data/providers';
+import { agencyNotes } from '../../domain/agencyPresentation';
 import { CATEGORY_LABELS, CATEGORY_SEVERITY } from '../../domain/categories';
 import { lastDayOfWindow, publicationLagDays } from '../../domain/evidenceWindow';
 import { dataNotes, dayCount, windowRangeLabel } from '../../domain/presentation';
 import { formatDay } from '../../domain/time';
+import type { AreaSummary } from '../../hooks/useAreaSummary';
 import type { CrimeCategory, EvidenceBundle, LoadStatus, ProviderMeta, SelectedPlace } from '../../types';
-import { ExternalIcon, RefreshIcon, WarningIcon } from '../Icons';
+import { ChevronIcon, ExternalIcon, RefreshIcon, WarningIcon } from '../Icons';
 import { DataNotes } from './Finding';
+import { JurisdictionMethod, JurisdictionSource } from './Jurisdiction';
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 
@@ -28,6 +31,8 @@ export const LIMITATIONS = [
   'Locations are deliberately blurred. A dot never identifies a particular hotel, business, home, or person.',
   'Comparing land areas ignores foot traffic, visitors, transit riders, lighting, and special events.',
   'A quiet window does not guarantee safety, and a high count does not measure the risk to any one traveler.',
+  'Outside the local feeds, FBI totals describe a whole city or county. A citywide rate says nothing about which '
+    + 'neighborhood you are in, and agencies send months on their own schedules.',
 ];
 
 function featuredPlaceFor(provider: ProviderMeta): SelectedPlace | undefined {
@@ -146,17 +151,22 @@ function Limits() {
 
 export function CoveredPlaces({
   activeProviderId,
+  open,
   onPlaceSelect,
 }: {
   activeProviderId: string | null;
+  /** Unfolded where the current place has no local feed. */
+  open: boolean;
   onPlaceSelect(place: SelectedPlace): void;
 }) {
   return (
-    <section aria-labelledby="covered-title" className="section">
-      <div className="section__head">
+    <details className="section covered-section" open={open}>
+      <summary className="section__head">
         <h3 id="covered-title">Cities with official incident data</h3>
-      </div>
-      <ul className="covered">
+        <span className="covered-section__count">{providerMetadata.length}</span>
+        <ChevronIcon className="covered-section__chevron" size={16} />
+      </summary>
+      <ul aria-labelledby="covered-title" className="covered">
         {providerMetadata.map((provider) => {
           const place = featuredPlaceFor(provider);
           const active = provider.id === activeProviderId;
@@ -176,7 +186,7 @@ export function CoveredPlaces({
           );
         })}
       </ul>
-    </section>
+    </details>
   );
 }
 
@@ -205,6 +215,7 @@ function Appearance({ value, onChange }: { value: ThemePreference; onChange(valu
 export function AboutTab({
   provider,
   evidence,
+  jurisdiction,
   status,
   themePreference,
   onThemePreferenceChange,
@@ -213,17 +224,23 @@ export function AboutTab({
 }: {
   provider: ProviderMeta | null;
   evidence: EvidenceBundle | null;
+  /** FBI totals standing in where no local feed covers the place. */
+  jurisdiction: AreaSummary | null;
   status: LoadStatus;
   themePreference: ThemePreference;
   onThemePreferenceChange(value: ThemePreference): void;
   onRefresh(): void;
   onPlaceSelect(place: SelectedPlace): void;
 }) {
-  const notes = evidence ? dataNotes(evidence) : [];
-  const covered = <CoveredPlaces activeProviderId={provider?.id ?? null} onPlaceSelect={onPlaceSelect} />;
+  const fallback = !provider && jurisdiction && jurisdiction.kind !== 'outside' ? jurisdiction : null;
+  let notes = evidence ? dataNotes(evidence) : [];
+  if (fallback?.kind === 'agency') notes = agencyNotes(fallback.summary);
+  const covered = <CoveredPlaces activeProviderId={provider?.id ?? null} onPlaceSelect={onPlaceSelect} open={!provider && !fallback} />;
   return (
     <>
-      {provider ? <SourceDetails evidence={evidence} provider={provider} /> : covered}
+      {provider ? <SourceDetails evidence={evidence} provider={provider} /> : null}
+      {fallback ? <JurisdictionSource result={fallback} /> : null}
+      {!provider && !fallback ? covered : null}
       {notes.length > 0 ? (
         <section aria-labelledby="notes-title" className="section">
           <div className="section__head">
@@ -232,9 +249,9 @@ export function AboutTab({
           <DataNotes expanded notes={notes} />
         </section>
       ) : null}
-      <Method />
+      {fallback ? <JurisdictionMethod /> : <Method />}
       <Limits />
-      {provider ? covered : null}
+      {provider || fallback ? covered : null}
       <Appearance onChange={onThemePreferenceChange} value={themePreference} />
       <footer className="credits">
         {provider ? (

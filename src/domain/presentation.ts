@@ -207,7 +207,18 @@ export function truncationCopy(truncation: EvidenceTruncation, recordLimit: numb
     + 'Counts inside the circle are complete.';
 }
 
-export type NoteId = 'truncation' | 'delayed' | 'dataset-start' | 'area-coverage' | 'settling';
+export type NoteId =
+  | 'truncation'
+  | 'delayed'
+  | 'dataset-start'
+  | 'area-coverage'
+  | 'settling'
+  // FBI jurisdiction totals, where no local feed covers the point.
+  | 'precision'
+  | 'no-city-agency'
+  | 'agency-behind'
+  | 'partial-months'
+  | 'small-population';
 
 export interface DataNote {
   id: NoteId;

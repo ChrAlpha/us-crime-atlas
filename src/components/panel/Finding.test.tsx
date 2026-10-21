@@ -119,6 +119,15 @@ describe('ComparisonScale', () => {
     expect(renderScale(ratio, band).scale).toHaveAccessibleName(label);
   });
 
+  it.each<[number, EvidenceBand, string, string]>([
+    [1.8, 'elevated', 'the Oklahoma rate', '1.8× the Oklahoma rate (higher).'],
+    [0.4, 'lower', 'the California rate', '0.4× the California rate (lower).'],
+    [0, 'lower', 'the Texas rate', '0× the Texas rate (lower).'],
+  ])('names what a %s× ratio is relative to', (ratio, band, reference, label) => {
+    render(<ComparisonScale band={band} ratio={ratio} reference={reference} />);
+    expect(screen.getByRole('img')).toHaveAccessibleName(label);
+  });
+
   it('places the marker on a logarithmic track', () => {
     const { marker, bands } = renderScale(0.5, 'lower');
 

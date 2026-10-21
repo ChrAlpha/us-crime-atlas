@@ -5,7 +5,7 @@ A change is release-ready only when the relevant automated gates pass and the vi
 ## Functional
 
 - [ ] A supported featured place selects the correct local provider.
-- [ ] All eleven registered provider bounds resolve to the intended agency and do not overlap an unrelated city.
+- [ ] All registered provider bounds resolve to the intended agency and do not overlap an unrelated city.
 - [ ] A map click or a pin drag updates the analysis point and URL state.
 - [ ] Place search is submitted explicitly; it does not issue per-keystroke requests.
 - [ ] Radius options of 500 m, 1 km, and 2 km update the circle and analysis.
@@ -18,7 +18,8 @@ A change is release-ready only when the relevant automated gates pass and the vi
 - [ ] Report-location dots render normalized incidents, one dot per shared coordinate, sized by count and colored by the dominant type.
 - [ ] Selecting a map location shows its reports in the panel; selecting a list row expands it in place and focuses the map on the same location.
 - [ ] A selection clears when its location or list report leaves the filtered results.
-- [ ] Unsupported locations show a clear coverage state and no fabricated result, including neighboring cities inside a provider's bounding box.
+- [ ] Places without a local feed, including neighboring cities inside a provider's bounding box, show the FBI totals of the agency that polices them, compared with the state rate and marked as whole-jurisdiction, lower-precision figures; the radius, date, and type settings and the map's circle are hidden there.
+- [ ] Where no agency matches, only the statewide rate is shown, as context; points outside the states are map-only.
 - [ ] Analysis areas that cross city limits use only the covered area in densities and disclose the uncovered share; under 25% coverage withholds the comparison.
 - [ ] Network errors show source-specific failure text and a retry action.
 - [ ] The production bundle, served under the Pages subpath, loads every asset and starts the MapLibre worker (`pnpm run test:e2e:production`).
@@ -29,7 +30,7 @@ A change is release-ready only when the relevant automated gates pass and the vi
 
 ## Data integrity
 
-- [ ] All eleven live city endpoints resolve the required identity, date, category, and geometry semantics through the real provider code.
+- [ ] All live city endpoints resolve the required identity, date, category, and geometry semantics through the real provider code.
 - [ ] ArcGIS epochs are interpreted per layer (true UTC versus local wall-clock), and each city's quietest hours fall in the early morning.
 - [ ] Current and previous windows use separate, paged requests; if the wider comparison request is truncated, the selected circle's current window is re-fetched on its own budget.
 - [ ] Adaptive Socrata providers resolve only explicitly reviewed aliases from official dataset metadata.
@@ -54,7 +55,7 @@ A change is release-ready only when the relevant automated gates pass and the vi
 - [ ] Below 768 px the map fills the viewport under a floating search bar and setting chips, with the panel in a bottom sheet at peek, half, and full positions.
 - [ ] At peek, the sheet shows the place, the source line, and the answer without covering more than half the screen.
 - [ ] Map controls and the locate button follow the sheet, and the circle is framed inside the uncovered part of the map.
-- [ ] The eleven covered places in the search menu and the About tab remain usable without page-level overflow.
+- [ ] The search menu lists the nearest six covered places and filters every registered city as you type; the About tab folds the full city list behind one disclosure. Neither causes page-level overflow.
 - [ ] iPhone-class viewport keeps 44 px-class primary touch targets and has no horizontal overflow, including under wide fallback fonts.
 - [ ] Search and analysis controls remain reachable without trapping page scroll.
 - [ ] Safe-area insets are respected.
@@ -78,8 +79,8 @@ A change is release-ready only when the relevant automated gates pass and the vi
 - [ ] `pnpm run typecheck`
 - [ ] `pnpm run test:unit` with coverage thresholds over all application source (98% lines/statements/functions, 95% branches)
 - [ ] `pnpm run build`
-- [ ] `pnpm run test:data` across all eleven official city contracts and both base-map styles
-- [ ] `pnpm run test:runtime` loading live evidence through all eleven real providers
+- [ ] `pnpm run test:data` across every official city contract and both base-map styles
+- [ ] `pnpm run test:runtime` loading live evidence through every real provider
 - [ ] `pnpm run test:e2e` in desktop, tablet, and mobile Chromium projects
 - [ ] Browser acceptance explicitly exercises a fixed Socrata, a metadata-resolved Socrata, an ArcGIS, and a delayed provider
 - [ ] Scheduled `.github/workflows/provider-health.yml` can run manually and is configured for twice-weekly checks

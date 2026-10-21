@@ -2,6 +2,9 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { FEATURED_PLACES, providerMetadata } from '../../data/providers';
+import { summarizeAgency, summarizeState } from '../../domain/agencySummary';
+import type { AreaSummary } from '../../hooks/useAreaSummary';
+import { FULL_AGENCY, LAGGING_AGENCY, fixtureSnapshot, matchFor } from '../../test/agencyFixtures';
 import {
   CURRENT_WINDOW,
   DELAYED_WINDOW,
@@ -16,6 +19,7 @@ import { AboutTab, CoveredPlaces, LIMITATIONS, type ThemePreference } from './Ab
 interface AboutOptions {
   provider?: ProviderMeta | null;
   evidence?: EvidenceBundle | null;
+  jurisdiction?: AreaSummary | null;
   status?: LoadStatus;
   themePreference?: ThemePreference;
 }
@@ -23,18 +27,45 @@ interface AboutOptions {
 function renderAbout({
   provider = META,
   evidence = evidenceFor(FRESH_WINDOW),
+  jurisdiction = null,
   status = 'ready',
   themePreference = 'system',
 }: AboutOptions = {}) {
   const handlers = { onThemePreferenceChange: vi.fn(), onRefresh: vi.fn(), onPlaceSelect: vi.fn() };
   const view = render(
-    <AboutTab evidence={evidence} provider={provider} status={status} themePreference={themePreference} {...handlers} />,
+    <AboutTab
+      evidence={evidence}
+      jurisdiction={jurisdiction}
+      provider={provider}
+      status={status}
+      themePreference={themePreference}
+      {...handlers}
+    />,
   );
   return { ...view, ...handlers };
 }
 
+const snapshot = fixtureSnapshot();
+/** A county agency standing in for a city without its own, behind and missing a month. */
+const LAGGING_RESULT: AreaSummary = {
+  kind: 'agency',
+  summary: summarizeAgency(matchFor(LAGGING_AGENCY, {
+    ori: 'CA0000002',
+    basis: 'county',
+    areaName: 'Fixture County',
+    placeWithoutAgency: 'Smallville town',
+  }), snapshot)!,
+  snapshot,
+};
+const FULL_RESULT: AreaSummary = { kind: 'agency', summary: summarizeAgency(matchFor(FULL_AGENCY), snapshot)!, snapshot };
+const STATE_RESULT: AreaSummary = { kind: 'state', summary: summarizeState(snapshot), snapshot, agencyName: null };
+
 function section(title: string) {
   return screen.getByRole('heading', { level: 3, name: title }).closest('section')!;
+}
+
+function covered() {
+  return screen.getByRole('heading', { level: 3, name: 'Cities with official incident data' }).closest('details')!;
 }
 
 function fact(term: string) {
@@ -125,10 +156,14 @@ describe('AboutTab layout', () => {
       'Cities with official incident data',
       'Appearance',
     ]);
+    expect(covered()).not.toHaveAttribute('open');
   });
 
-  it('leads with the covered cities when the place has no feed', () => {
-    renderAbout({ provider: null, evidence: null, status: 'idle' });
+  it.each<[string, AreaSummary | null]>([
+    ['no FBI totals', null],
+    ['a place outside the US', { kind: 'outside' }],
+  ])('leads with the covered cities, unfolded, when the place has no feed and %s', (_, jurisdiction) => {
+    renderAbout({ provider: null, evidence: null, jurisdiction, status: 'idle' });
 
     expect(sectionTitles()).toEqual([
       'Cities with official incident data',
@@ -136,6 +171,7 @@ describe('AboutTab layout', () => {
       'Limits of this data',
       'Appearance',
     ]);
+    expect(covered()).toHaveAttribute('open');
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Reload/ })).not.toBeInTheDocument();
     expect(screen.queryByText('Showing')).not.toBeInTheDocument();
@@ -170,6 +206,10 @@ describe('AboutTab layout', () => {
     const limits = section('Limits of this data');
     expect(within(limits).getAllByRole('listitem').map((item) => item.textContent)).toEqual([...LIMITATIONS]);
     expect(limits.querySelectorAll('svg')).toHaveLength(LIMITATIONS.length);
+    expect(LIMITATIONS.at(-1)).toBe(
+      'Outside the local feeds, FBI totals describe a whole city or county. A citywide rate says nothing about which '
+        + 'neighborhood you are in, and agencies send months on their own schedules.',
+    );
   });
 
   it('credits the map and search providers', () => {
@@ -183,20 +223,20 @@ describe('AboutTab covered places', () => {
     const user = userEvent.setup();
     const { onPlaceSelect } = renderAbout();
 
-    const covered = section('Cities with official incident data');
-    const items = within(covered).getAllByRole('listitem');
+    const list = covered();
+    const items = within(list).getAllByRole('listitem');
     expect(items).toHaveLength(providerMetadata.length);
     expect(items[0]).toHaveTextContent(`${META.label}${META.agency} · published quarterly`);
     expect(within(items[0]!).getByText('Showing')).toHaveClass('covered__current');
     expect(within(items[0]!).queryByRole('button')).not.toBeInTheDocument();
-    expect(within(covered).getAllByText('Showing')).toHaveLength(1);
+    expect(within(list).getAllByText('Showing')).toHaveLength(1);
 
-    const buttons = within(covered).getAllByRole('button');
+    const buttons = within(list).getAllByRole('button');
     expect(buttons.map((button) => button.textContent)).toEqual(
       FEATURED_PLACES.slice(1).map((place) => `Go to ${place.label}`),
     );
 
-    await user.click(within(covered).getByRole('button', { name: 'Go to The Loop' }));
+    await user.click(within(list).getByRole('button', { name: 'Go to The Loop' }));
     expect(onPlaceSelect).toHaveBeenCalledOnce();
     expect(onPlaceSelect).toHaveBeenCalledWith(FEATURED_PLACES.find((place) => place.label === 'The Loop'));
   });
@@ -204,7 +244,7 @@ describe('AboutTab covered places', () => {
   it('offers every featured place when none is showing', async () => {
     const user = userEvent.setup();
     const onPlaceSelect = vi.fn();
-    render(<CoveredPlaces activeProviderId={null} onPlaceSelect={onPlaceSelect} />);
+    render(<CoveredPlaces activeProviderId={null} onPlaceSelect={onPlaceSelect} open />);
 
     expect(screen.getAllByRole('button')).toHaveLength(FEATURED_PLACES.length);
     await user.click(screen.getByRole('button', { name: 'Go to Times Square' }));
@@ -212,11 +252,123 @@ describe('AboutTab covered places', () => {
   });
 
   it('marks another active provider', () => {
-    render(<CoveredPlaces activeProviderId="seattle" onPlaceSelect={vi.fn()} />);
+    render(<CoveredPlaces activeProviderId="seattle" onPlaceSelect={vi.fn()} open />);
 
     expect(screen.getByText('Showing').closest('li')).toHaveTextContent(/^Seattle, Washington/);
     expect(screen.queryByRole('button', { name: 'Go to Pike Place' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Go to Times Square' })).toBeInTheDocument();
+  });
+
+  it('folds the list behind a counted heading', () => {
+    const { container } = render(<CoveredPlaces activeProviderId={null} onPlaceSelect={vi.fn()} open={false} />);
+
+    const details = container.querySelector('details')!;
+    expect(details).toHaveClass('section', 'covered-section');
+    expect(details).not.toHaveAttribute('open');
+
+    const summary = details.querySelector('summary')!;
+    expect(summary).toHaveClass('section__head');
+    const heading = within(summary).getByRole('heading', { level: 3 });
+    expect(heading).toHaveTextContent(/^Cities with official incident data$/);
+    expect(heading).toHaveAttribute('id', 'covered-title');
+    expect(summary.querySelector('.covered-section__count')).toHaveTextContent(new RegExp(`^${providerMetadata.length}$`));
+    expect(summary.querySelector('svg')).toHaveClass('covered-section__chevron');
+
+    const list = details.querySelector('ul')!;
+    expect(list).toHaveClass('covered');
+    expect(list).toHaveAttribute('aria-labelledby', 'covered-title');
+    expect(list.querySelectorAll('li')).toHaveLength(providerMetadata.length);
+  });
+
+  it('unfolds the list when asked', () => {
+    const { container } = render(<CoveredPlaces activeProviderId={null} onPlaceSelect={vi.fn()} open />);
+
+    expect(container.querySelector('details')).toHaveAttribute('open');
+    expect(screen.getByRole('list', { name: 'Cities with official incident data' })).toBeInTheDocument();
+  });
+});
+
+describe('AboutTab FBI fallback', () => {
+  it('describes the agency totals and folds the covered cities after the limits', () => {
+    renderAbout({ provider: null, evidence: null, jurisdiction: LAGGING_RESULT, status: 'idle' });
+
+    expect(sectionTitles()).toEqual([
+      'Source',
+      'Notes for this view',
+      'How the FBI fallback works',
+      'Limits of this data',
+      'Cities with official incident data',
+      'Appearance',
+    ]);
+    const source = section('Source');
+    expect(within(source).getByText('Lagging Town Police Department', { selector: 'strong' })).toBeInTheDocument();
+    expect(within(source).getByRole('link', { name: /FBI Crime Data Explorer/ })).toHaveAttribute('href', snapshot.sourceUrl);
+    expect(fact('Area covered')).toHaveTextContent('All of Fixture County, not just this point');
+    expect(fact('Months used')).toHaveTextContent('Jan 2025 – Dec 2025 (11 of 12 reported)');
+
+    expect(covered()).not.toHaveAttribute('open');
+    expect(screen.queryByRole('heading', { name: 'How the comparison works' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Reload/ })).not.toBeInTheDocument();
+  });
+
+  it('lists every agency note, expanded', () => {
+    renderAbout({ provider: null, evidence: null, jurisdiction: LAGGING_RESULT, status: 'idle' });
+
+    const notes = section('Notes for this view');
+    expect(notes.querySelector('details')).toBeNull();
+    expect([...notes.querySelectorAll('.notes > .note')].map((note) => note.getAttribute('data-testid'))).toEqual([
+      'note-precision',
+      'note-no-city-agency',
+      'note-small-population',
+      'note-partial-months',
+      'note-agency-behind',
+    ]);
+    expect(within(notes).getByTestId('note-agency-behind')).toHaveTextContent('Agency is 7 months behind.');
+  });
+
+  it('notes the lower precision even for a complete agency', () => {
+    renderAbout({ provider: null, evidence: null, jurisdiction: FULL_RESULT, status: 'idle' });
+
+    const notes = section('Notes for this view');
+    expect([...notes.querySelectorAll('.note')].map((note) => note.getAttribute('data-testid'))).toEqual([
+      'note-precision',
+    ]);
+    expect(fact('Residents served')).toHaveTextContent('120,000 · City agency, FBI ORI CA0000001');
+  });
+
+  it('describes the statewide rates without agency notes', () => {
+    renderAbout({ provider: null, evidence: null, jurisdiction: STATE_RESULT, status: 'idle' });
+
+    expect(sectionTitles()).toEqual([
+      'Source',
+      'How the FBI fallback works',
+      'Limits of this data',
+      'Cities with official incident data',
+      'Appearance',
+    ]);
+    expect(within(section('Source')).getByText('California statewide rates', { selector: 'strong' })).toBeInTheDocument();
+    expect(fact('Area covered')).toBeNull();
+    expect(screen.queryByTestId(/^note-/)).not.toBeInTheDocument();
+    expect(covered()).not.toHaveAttribute('open');
+  });
+
+  it('ignores FBI totals while a local feed covers the place', () => {
+    renderAbout({ evidence: evidenceFor(CURRENT_WINDOW), jurisdiction: LAGGING_RESULT });
+
+    expect(sectionTitles()).toEqual([
+      'Source',
+      'Notes for this view',
+      'How the comparison works',
+      'Limits of this data',
+      'Cities with official incident data',
+      'Appearance',
+    ]);
+    expect(within(section('Source')).getByText(META.agency, { selector: 'strong' })).toBeInTheDocument();
+    expect(screen.getByTestId('note-settling')).toBeInTheDocument();
+    expect(screen.queryByTestId('note-precision')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'How the FBI fallback works' })).not.toBeInTheDocument();
+    expect(covered()).not.toHaveAttribute('open');
+    expect(screen.getByRole('button', { name: 'Reload from New York City source' })).toBeInTheDocument();
   });
 });
 

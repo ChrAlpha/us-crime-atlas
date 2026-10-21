@@ -24,6 +24,8 @@ const NEIGHBORS: ReadonlyArray<readonly [string, string, Coordinates]> = [
   ['Highland Park, Michigan', 'detroit', [-83.0963, 42.4059]],
   ['Daly City', 'san-francisco', [-122.4702, 37.6879]],
   ['Daly City at the county line', 'san-francisco', [-122.46, 37.7]],
+  ['Piedmont', 'oakland', [-122.2317, 37.8244]],
+  ['Emeryville', 'oakland', [-122.2852, 37.8313]],
   ['Belle Meade', 'nashville', [-86.8577, 36.1037]],
   ['Highland Park, Texas', 'dallas', [-96.8003, 32.8343]],
 ];
@@ -47,7 +49,7 @@ describe('jurisdiction data', () => {
   it('has city limits for every registered provider and nothing else', () => {
     for (const meta of providerMetadata) {
       const jurisdiction = limitsOf(meta.id);
-      expect(jurisdiction.geoid, meta.id).toMatch(/^\d{7}$/);
+      expect(jurisdiction.geoid, meta.id).toMatch(/^\d{5}(\d{2})?$/);
       expect(jurisdiction.name.toLowerCase(), meta.id).toContain(meta.city.toLowerCase().replace(/ city$/, ''));
       expect(jurisdiction.rings.length, meta.id).toBeGreaterThan(0);
       for (const ring of jurisdiction.rings) {

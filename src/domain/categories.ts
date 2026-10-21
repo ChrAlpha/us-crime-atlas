@@ -40,7 +40,7 @@ export const CATEGORY_SEVERITY: Record<CrimeCategory, number> = {
 /** Ordered: the first matching pattern wins, so more specific offenses come first. */
 const CATEGORY_PATTERNS: ReadonlyArray<readonly [RegExp, CrimeCategory]> = [
   [/(homicide|murder|manslaughter|negligent killing)/i, 'homicide'],
-  [/(rape|sexual|sex abuse|indecent|sodomy)/i, 'sexual'],
+  [/(rape|sexual|sex abuse|sex offen|fondling|indecent|sodomy)/i, 'sexual'],
   [/(robbery|carjacking)/i, 'robbery'],
   // Bare "aggravated" would also match offenses such as NYPD's "AGGRAVATED HARASSMENT".
   [/(assault|battery)/i, 'assault'],

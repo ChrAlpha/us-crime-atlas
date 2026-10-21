@@ -25,9 +25,13 @@ export const ARCGIS_MAX_PAGES = 5;
  */
 export type ArcgisEpochSemantics = 'utc' | 'local-clock';
 
-/** Queries run with `returnGeometry=false`; coordinates come from published attributes. */
+/**
+ * Coordinates come from published attributes, or from WGS84 point geometry for layers that
+ * publish none (`returnGeometry`).
+ */
 export interface ArcgisFeature<Row extends Record<string, unknown> = Record<string, unknown>> {
   attributes?: Row;
+  geometry?: { x?: unknown; y?: unknown } | null;
 }
 
 interface ArcgisError {
@@ -51,6 +55,15 @@ export interface ArcgisProviderConfig {
   mapFeature(feature: ArcgisFeature): Incident | null;
   pageSize?: number;
   maxPages?: number;
+  /** Request WGS84 point geometry, for layers without coordinate attributes. */
+  returnGeometry?: boolean;
+  /** A reviewed SQL predicate every query adds (one row per incident, reports only). */
+  filter?: string;
+  /**
+   * Tables ignore envelope geometry, so the bounding box is compared against these
+   * coordinate attributes in the SQL predicate instead.
+   */
+  coordinateAttributes?: { latitude: string; longitude: string };
 }
 
 /**
@@ -72,9 +85,24 @@ function queryFilter(config: ArcgisProviderConfig, query: IncidentQuery) {
   const box = boundingBoxForRadius(query.center, query.radiusMeters);
   const start = sqlTimestamp(query.startEpochMs - QUERY_PADDING_MS);
   const end = sqlTimestamp(query.endEpochMs + QUERY_PADDING_MS);
+  const predicates = [
+    `${config.dateField} >= TIMESTAMP '${start}'`,
+    `${config.dateField} < TIMESTAMP '${end}'`,
+    ...(config.filter ? [`(${config.filter})`] : []),
+  ];
+  const coordinates = config.coordinateAttributes;
+  if (coordinates) {
+    predicates.push(
+      `${coordinates.latitude} >= ${box.south.toFixed(7)}`,
+      `${coordinates.latitude} <= ${box.north.toFixed(7)}`,
+      `${coordinates.longitude} >= ${box.west.toFixed(7)}`,
+      `${coordinates.longitude} <= ${box.east.toFixed(7)}`,
+    );
+    return { f: 'json', where: predicates.join(' AND ') };
+  }
   return {
     f: 'json',
-    where: `${config.dateField} >= TIMESTAMP '${start}' AND ${config.dateField} < TIMESTAMP '${end}'`,
+    where: predicates.join(' AND '),
     geometry: JSON.stringify({
       xmin: box.west,
       ymin: box.south,
@@ -89,7 +117,12 @@ function queryFilter(config: ArcgisProviderConfig, query: IncidentQuery) {
 }
 
 export function buildArcgisCountUrl(config: ArcgisProviderConfig, query: IncidentQuery): string {
-  const params = new URLSearchParams({ ...queryFilter(config, query), returnCountOnly: 'true' });
+  const params = new URLSearchParams({
+    ...queryFilter(config, query),
+    // Rochester's state-plane layer counts a different envelope edge without the page's outSR.
+    ...(config.returnGeometry ? { outSR: '4326' } : {}),
+    returnCountOnly: 'true',
+  });
   return `${config.layerUrl}/query?${params.toString()}`;
 }
 
@@ -109,9 +142,9 @@ export function buildArcgisQueryUrl(
   const params = new URLSearchParams({
     ...queryFilter(config, query),
     outFields: config.outFields.join(','),
-    // Every registered layer publishes coordinate attributes; skipping feature geometry
-    // roughly halves response time on the slower services.
-    returnGeometry: 'false',
+    // Skipping feature geometry roughly halves response time on the slower services, so it
+    // is requested only from layers without coordinate attributes.
+    ...(config.returnGeometry ? { returnGeometry: 'true', outSR: '4326' } : { returnGeometry: 'false' }),
     orderByFields: `${config.dateField} DESC,${config.objectIdField} ASC`,
     resultOffset: String(page.offset),
     resultRecordCount: String(page.limit),
@@ -125,6 +158,7 @@ export function buildArcgisLatestUrl(config: ArcgisProviderConfig, nowUtcEpochMs
     where: [
       `${config.dateField} >= TIMESTAMP '${sqlTimestamp(nowUtcEpochMs - LATEST_RECORD_LOOKBACK_DAYS * DAY_MS)}'`,
       `${config.dateField} <= TIMESTAMP '${sqlTimestamp(nowUtcEpochMs + DAY_MS)}'`,
+      ...(config.filter ? [`(${config.filter})`] : []),
     ].join(' AND '),
     outStatistics: JSON.stringify([
       { statisticType: 'max', onStatisticField: config.dateField, outStatisticFieldName: 'latest_record' },

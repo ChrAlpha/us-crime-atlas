@@ -69,6 +69,8 @@ test('updates place, report types, radius, and URL state', async ({ page }, test
 
   await openTab(page, testInfo, 'About the data');
   await expect(page.getByRole('heading', { name: 'How the comparison works' })).toBeVisible();
+  // The covered-city list folds behind one disclosure while a feed is showing.
+  await page.locator('.covered-section summary').click();
   await expect(page.getByText('Los Angeles, California')).toBeVisible();
   await expect(page.getByText('Seattle, Washington')).toBeVisible();
   await expectNoHorizontalOverflow(page);
@@ -209,12 +211,44 @@ test('labels shared coordinates without a place name as a dropped pin', async ({
   await expect(page).toHaveURL(/e2e=1/);
 });
 
-test('treats a neighboring city inside a feed\'s bounding box as uncovered', async ({ page }) => {
+test('gives a neighboring city inside a feed\'s bounding box its own agency totals', async ({ page }) => {
   await mockOfficialSources(page);
   // Jersey City sits inside the NYC rectangle but outside New York City limits.
   await page.goto('/?e2e=1&lat=40.7282&lng=-74.0776&place=Jersey+City&detail=New+Jersey');
-  await expect(page.getByTestId('no-feed-state')).toContainText('No official incident feed here yet');
+  await expect(page.locator('.place__source')).toContainText('FBI totals · Jersey City Police Department');
+  await expect(page.getByTestId('precision-tag')).toHaveText('Whole jurisdiction');
+  await expect(page.getByTestId('jurisdiction-finding')).toContainText('New Jersey overall');
+  await expect(page.getByTestId('jurisdiction-window')).toContainText('FBI totals for all of Jersey City,');
+  await expect(page.getByTestId('note-precision')).toContainText('Lower precision.');
   await expect(page.getByTestId('reported-count')).toHaveCount(0);
+  // Radius, dates, and report types do not apply to whole-jurisdiction totals.
+  await expect(page.getByRole('group', { name: 'Analysis settings' })).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: /^Reports/ })).toHaveCount(0);
+  await expect(page.getByTestId('violent-count')).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
+  const accessibility = await new AxeBuilder({ page })
+    .exclude('.maplibregl-control-container')
+    .exclude('.maplibregl-canvas')
+    .analyze();
+  expect(accessibility.violations.filter((violation) => ['serious', 'critical'].includes(violation.impact ?? '')))
+    .toEqual([]);
+});
+
+test('summarizes the agency that polices an unincorporated area', async ({ page }) => {
+  await mockOfficialSources(page);
+  // East Los Angeles is unincorporated Los Angeles County, policed by the Sheriff.
+  await page.goto('/?e2e=1&lat=34.0239&lng=-118.1728&place=East+Los+Angeles&detail=California');
+  await expect(page.locator('.place__source')).toContainText("Los Angeles County Sheriff's Office");
+  await expect(page.getByTestId('jurisdiction-window')).toContainText('FBI totals for all of Los Angeles County,');
+});
+
+test('marks a point outside the states as map-only', async ({ page }) => {
+  await mockOfficialSources(page);
+  await page.goto('/?e2e=1&lat=43.6532&lng=-79.3832&place=Toronto');
+  await expect(page.getByTestId('outside-coverage')).toContainText('Outside US coverage');
+  await expect(page.locator('.place__source')).toContainText('Map only · outside US coverage');
+  await expect(page.getByRole('group', { name: 'Analysis settings' })).toHaveCount(0);
 });
 
 test('shows an actionable failure state when an official portal is unavailable', async ({ page }) => {

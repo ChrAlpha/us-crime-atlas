@@ -63,6 +63,24 @@
   max-width: 60ch;
 }
 
+.finding__headline--quiet {
+  font-size: var(--text-xl);
+}
+
+.panel--sheet .finding__headline--quiet {
+  font-size: 1.25rem;
+}
+
+.finding__context {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-s);
+  background: var(--surface-2);
+  color: var(--ink-1);
+  font-size: var(--text-s);
+  max-width: 60ch;
+}
+
 .finding__method {
   margin: 12px 0 0;
   color: var(--ink-3);
@@ -821,6 +839,44 @@
 .limits svg {
   margin-top: 2px;
   color: var(--ink-3);
+}
+
+.covered-section > summary {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.covered-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.covered-section__count {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--ink-2);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+
+.covered-section__chevron {
+  margin-left: auto;
+  color: var(--ink-3);
+  transition: transform 160ms var(--ease-out);
+}
+
+.covered-section[open] .covered-section__chevron {
+  transform: rotate(180deg);
+}
+
+.covered-section > summary:hover h3 {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .covered {

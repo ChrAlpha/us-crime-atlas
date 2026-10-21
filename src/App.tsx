@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRe
 import { findProviderForPoint } from './data/providers';
 import { CRIME_GROUPS, GROUP_LABELS } from './domain/categories';
 import { droppedPin, parseUrlState, serializeUrlState } from './domain/urlState';
+import { useAreaSummary } from './hooks/useAreaSummary';
 import { useIncidentAnalysis } from './hooks/useIncidentAnalysis';
 import { COMPACT_QUERY, useMediaQuery } from './hooks/useMediaQuery';
 import type { SheetSnap } from './hooks/useSheet';
@@ -75,6 +76,8 @@ export default function App() {
 
   const { place, radiusMeters, windowDays, activeGroups } = atlasState;
   const provider = useMemo(() => findProviderForPoint(place.coordinates), [place.coordinates]);
+  // FBI jurisdiction totals stand in wherever no local incident feed covers the point.
+  const areaSummary = useAreaSummary(place.coordinates, provider === null);
   const incidentState = useIncidentAnalysis({
     provider,
     center: place.coordinates,
@@ -244,14 +247,17 @@ export default function App() {
           </button>
         </div>
         <SearchBox locating={locating} onLocate={locate} onPlaceSelect={choosePlace} place={place} />
-        <FilterBar
-          activeGroups={activeGroups}
-          onRadiusChange={setRadius}
-          onToggleGroup={toggleGroup}
-          onWindowChange={setWindow}
-          radiusMeters={radiusMeters}
-          windowDays={windowDays}
-        />
+        {/* Radius, dates, and report types only apply to a local incident feed. */}
+        {provider ? (
+          <FilterBar
+            activeGroups={activeGroups}
+            onRadiusChange={setRadius}
+            onToggleGroup={toggleGroup}
+            onWindowChange={setWindow}
+            radiusMeters={radiusMeters}
+            windowDays={windowDays}
+          />
+        ) : null}
       </header>
 
       <div className="atlas__map">
@@ -272,6 +278,7 @@ export default function App() {
               padding={padding}
               radiusMeters={radiusMeters}
               selectedKey={selectedLocation?.key ?? null}
+              showRings={provider !== null}
               theme={theme}
             />
           </Suspense>
@@ -291,6 +298,7 @@ export default function App() {
 
       <PlacePanel
         analysis={incidentState.analysis}
+        areaSummary={areaSummary}
         compact={compact}
         error={incidentState.error}
         evidence={incidentState.evidence}

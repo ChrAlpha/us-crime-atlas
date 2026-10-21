@@ -44,6 +44,8 @@ export interface AtlasMapProps {
   locations: readonly ReportLocation[];
   theme: MapTheme;
   selectedKey: string | null;
+  /** The circle and comparison ring; off where whole-jurisdiction totals stand in for a local feed. */
+  showRings?: boolean;
   /** Screen space covered by panels, kept clear when framing the circle. */
   padding: MapPadding;
   focus: MapFocus | null;
@@ -85,11 +87,14 @@ function updateAtlasData(
   radiusMeters: number,
   locations: readonly ReportLocation[],
   selectedKey: string | null,
+  showRings: boolean,
 ) {
   if (!map.isStyleLoaded()) return;
   ensureAtlasLayers(map, theme);
-  (map.getSource(SOURCE_RINGS) as GeoJSONSource).setData(ringFeatureCollection(center, radiusMeters));
-  (map.getSource(SOURCE_RING_LABELS) as GeoJSONSource).setData(ringLabelFeatureCollection(center, radiusMeters));
+  (map.getSource(SOURCE_RINGS) as GeoJSONSource)
+    .setData(showRings ? ringFeatureCollection(center, radiusMeters) : emptyFeatureCollection());
+  (map.getSource(SOURCE_RING_LABELS) as GeoJSONSource)
+    .setData(showRings ? ringLabelFeatureCollection(center, radiusMeters) : emptyFeatureCollection());
   (map.getSource(SOURCE_LOCATIONS) as GeoJSONSource).setData(locationFeatureCollection(locations, selectedKey));
 }
 
@@ -140,6 +145,7 @@ export function AtlasMap({
   locations,
   theme,
   selectedKey,
+  showRings = true,
   padding,
   focus,
   onPointChange,
@@ -151,11 +157,11 @@ export function AtlasMap({
   const userMovedRef = useRef(false);
   /** The camera when the map was last torn down, restored if the user had moved it. */
   const cameraRef = useRef<{ center: [number, number]; zoom: number } | null>(null);
-  const latest = useRef({ center, radiusMeters, locations, selectedKey, padding, onPointChange, onLocationSelect });
+  const latest = useRef({ center, radiusMeters, locations, selectedKey, showRings, padding, onPointChange, onLocationSelect });
   const [mapError, setMapError] = useState<string | null>(null);
   const [readyTheme, setReadyTheme] = useState<MapTheme | null>(null);
 
-  latest.current = { center, radiusMeters, locations, selectedKey, padding, onPointChange, onLocationSelect };
+  latest.current = { center, radiusMeters, locations, selectedKey, showRings, padding, onPointChange, onLocationSelect };
 
   useEffect(() => {
     const container = containerRef.current;
@@ -198,7 +204,15 @@ export function AtlasMap({
     const applyData = () => {
       try {
         const current = latest.current;
-        updateAtlasData(map, theme, current.center, current.radiusMeters, current.locations, current.selectedKey);
+        updateAtlasData(
+          map,
+          theme,
+          current.center,
+          current.radiusMeters,
+          current.locations,
+          current.selectedKey,
+          current.showRings,
+        );
         // A theme switch rebuilds the map; keep a viewport the user chose instead of reframing.
         if (!userMovedRef.current) {
           fitAnalysisArea(map, container, current.center, current.radiusMeters, current.padding, false);
@@ -273,8 +287,8 @@ export function AtlasMap({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (map) updateAtlasData(map, theme, center, radiusMeters, locations, selectedKey);
-  }, [theme, center, radiusMeters, locations, selectedKey]);
+    if (map) updateAtlasData(map, theme, center, radiusMeters, locations, selectedKey, showRings);
+  }, [theme, center, radiusMeters, locations, selectedKey, showRings]);
 
   useEffect(() => {
     markerRef.current?.setLngLat([center[0], center[1]]);

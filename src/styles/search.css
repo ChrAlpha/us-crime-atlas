@@ -123,6 +123,12 @@
   font-size: var(--text-s);
 }
 
+.search__more {
+  margin: 4px 10px 8px;
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+}
+
 .search__note--error {
   color: var(--error-ink);
 }

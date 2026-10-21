@@ -5,16 +5,22 @@ import App, { MIN_GROUP_MESSAGE, THEME_STORAGE_KEY, TOAST_DURATION_MS } from './
 import type { AtlasMapProps } from './components/AtlasMap';
 import { locationKey } from './components/mapLayers';
 import { loadEvidence, type EvidenceRequest } from './data/evidence';
+import { summarizeAgency, summarizeState } from './domain/agencySummary';
 import { FULL_AREA_COVERAGE, NO_TRUNCATION } from './domain/analysis';
 import { categoryGroup, isViolentCategory, severityForCategory } from './domain/categories';
 import { computeEvidenceWindow } from './domain/evidenceWindow';
 import { DAY_MS, localClockTimestamp } from './domain/time';
+import { useAreaSummary, type AreaSummary, type AreaSummaryState } from './hooks/useAreaSummary';
 import { clearEvidenceCache } from './hooks/useIncidentAnalysis';
 import { COMPACT_QUERY } from './hooks/useMediaQuery';
 import { sheetGeometry } from './hooks/useSheet';
+import { FULL_AGENCY, fixtureSnapshot, matchFor } from './test/agencyFixtures';
 import type { Coordinates, CrimeCategory, EvidenceBundle, Incident, IncidentProvider } from './types';
 
 vi.mock('./data/evidence', () => ({ loadEvidence: vi.fn() }));
+
+// The hook has its own tests; here it only has to report a state without Census or snapshot requests.
+vi.mock('./hooks/useAreaSummary', () => ({ useAreaSummary: vi.fn() }));
 
 vi.mock('./components/AtlasMap', () => ({
   AtlasMap: (props: AtlasMapProps) => (
@@ -24,6 +30,7 @@ vi.mock('./components/AtlasMap', () => ({
       data-locations={props.locations.map((location) => location.key).join('|')}
       data-padding={JSON.stringify(props.padding)}
       data-radius={props.radiusMeters}
+      data-rings={String(props.showRings)}
       data-selected={props.selectedKey ?? ''}
       data-testid="map-stub"
       data-theme={props.theme}
@@ -44,6 +51,7 @@ const DARK_THEME_COLOR = '#181714';
 const LATEST_RECORD = Date.UTC(2026, 9, 18, 15);
 const NOW = new Date('2026-10-21T16:00:00Z');
 const TIMES_SQUARE: Coordinates = [-73.9855, 40.758];
+const UNION_SQUARE: Coordinates = [-122.4075, 37.788];
 /** Two reports share this block; the vehicle theft sits alone on the other side of the point. */
 const SHARED_SPOT: Coordinates = [TIMES_SQUARE[0] + 0.001, TIMES_SQUARE[1]];
 const VEHICLE_SPOT: Coordinates = [TIMES_SQUARE[0] - 0.001, TIMES_SQUARE[1]];
@@ -102,6 +110,40 @@ function bundleFor(provider: IncidentProvider, request: EvidenceRequest): Eviden
 }
 
 const mockedLoadEvidence = vi.mocked(loadEvidence);
+
+/* ── FBI jurisdiction totals ──────────────────────────────────────────────── */
+
+/** No local incident feed covers Oklahoma City. */
+const OKLAHOMA_CITY: Coordinates = [-97.5164, 35.4676];
+const OKLAHOMA_CITY_URL = '?lat=35.4676&lng=-97.5164&place=Oklahoma+City&detail=Oklahoma';
+const OKLAHOMA_SNAPSHOT = fixtureSnapshot({ state: 'OK', stateName: 'Oklahoma', stateFips: '40' });
+const AGENCY_RESULT: AreaSummary = {
+  kind: 'agency',
+  summary: summarizeAgency(matchFor(FULL_AGENCY), OKLAHOMA_SNAPSHOT)!,
+  snapshot: OKLAHOMA_SNAPSHOT,
+};
+const STATE_RESULT: AreaSummary = {
+  kind: 'state',
+  summary: summarizeState(OKLAHOMA_SNAPSHOT),
+  snapshot: OKLAHOMA_SNAPSHOT,
+  agencyName: null,
+};
+const OUTSIDE_RESULT: AreaSummary = { kind: 'outside' };
+
+type AreaSummaryReport = Omit<AreaSummaryState, 'refresh'>;
+
+const mockedUseAreaSummary = vi.mocked(useAreaSummary);
+const refreshAreaSummary = vi.fn();
+/** What the hook reports while enabled; like the real hook, it is idle while disabled. */
+let enabledAreaSummary: AreaSummaryReport;
+
+function reportAreaSummary(report: Partial<AreaSummaryReport>) {
+  enabledAreaSummary = { status: 'loading', result: null, error: null, ...report };
+}
+
+function areaSummaryCalls() {
+  return mockedUseAreaSummary.mock.calls.map(([center, enabled]) => ({ center, enabled }));
+}
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -269,7 +311,8 @@ async function chooseOption(user: User, chip: string | RegExp, kind: keyof typeo
 }
 
 async function chooseFeaturedPlace(user: User, label: string) {
-  await user.click(screen.getByRole('searchbox', { name: 'Search a US address, hotel, or landmark' }));
+  // Only the nearest few covered places are listed until the query narrows them; typing alone fetches nothing.
+  await user.type(screen.getByRole('searchbox', { name: 'Search a US address, hotel, or landmark' }), label);
   const menu = screen.getByRole('region', { name: 'Search suggestions' });
   await user.click(within(menu).getByRole('button', { name: new RegExp(`^${label}`) }));
 }
@@ -284,6 +327,12 @@ beforeEach(() => {
   clearEvidenceCache();
   mockedLoadEvidence.mockReset();
   mockedLoadEvidence.mockImplementation(async (provider, request) => bundleFor(provider, request));
+  refreshAreaSummary.mockReset();
+  reportAreaSummary({});
+  mockedUseAreaSummary.mockReset();
+  mockedUseAreaSummary.mockImplementation((_center, enabled) => (enabled
+    ? { ...enabledAreaSummary, refresh: refreshAreaSummary }
+    : { status: 'idle', result: null, error: null, refresh: refreshAreaSummary }));
   installMatchMedia();
   FakeResizeObserver.instances = [];
   vi.stubGlobal('ResizeObserver', FakeResizeObserver);
@@ -403,6 +452,13 @@ describe('App URL state', () => {
       expect.objectContaining({ meta: expect.objectContaining({ id: 'new-york' }) }),
       expect.objectContaining({ center: TIMES_SQUARE, radiusMeters: 1000, windowDays: 30 }),
     );
+    // A local feed covers the point: the circle is drawn and no FBI totals are requested.
+    expect(map()).toHaveAttribute('data-rings', 'true');
+    expect(screen.getByRole('group', { name: 'Analysis settings' })).toBeInTheDocument();
+    const calls = areaSummaryCalls();
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls).toEqual(calls.map(() => ({ center: TIMES_SQUARE, enabled: false })));
+    expect(screen.queryByTestId('jurisdiction-finding')).not.toBeInTheDocument();
   });
 
   it('restores a shared view and syncs every change back into the URL', async () => {
@@ -775,18 +831,6 @@ describe('App layout', () => {
     expect(within(legend).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Violent', 'Weapons']);
   });
 
-  it('shows the no-feed state and no map key for an unsupported place', async () => {
-    setUrl('?lat=35.4676&lng=-97.5164&place=Oklahoma+City');
-    await renderApp();
-
-    expect(screen.getByRole('heading', { level: 1, name: 'Oklahoma City' })).toBeInTheDocument();
-    expect(screen.getByTestId('no-feed-state')).toBeInTheDocument();
-    expect(screen.queryByRole('group', { name: 'Map key' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
-    expect(mockedLoadEvidence).not.toHaveBeenCalled();
-    expect(map()).toHaveAttribute('data-locations', '');
-  });
-
   it('runs a bottom sheet on phones, keeping the map clear of the topbar and the sheet', async () => {
     installMatchMedia({ compact: true });
     const { container, user } = await renderReadyApp();
@@ -868,5 +912,148 @@ describe('App layout', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Pike Place' })).toBeInTheDocument();
     expect(screen.queryByTestId('selected-reports')).not.toBeInTheDocument();
     expect(map()).toHaveAttribute('data-selected', '');
+  });
+});
+
+/* ── FBI jurisdiction fallback ────────────────────────────────────────────── */
+
+describe('App FBI jurisdiction fallback', () => {
+  /** Nothing that belongs to a local incident feed is shown or requested. */
+  function expectNoLocalFeed() {
+    expect(mockedLoadEvidence).not.toHaveBeenCalled();
+    expect(screen.queryByRole('group', { name: 'Analysis settings' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Map key' })).not.toBeInTheDocument();
+    expect(map()).toHaveAttribute('data-rings', 'false');
+    expect(map()).toHaveAttribute('data-locations', '');
+  }
+
+  function expectOnlyEnabledCallsFor(center: Coordinates) {
+    const calls = areaSummaryCalls();
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls).toEqual(calls.map(() => ({ center, enabled: true })));
+  }
+
+  it('looks for the local police agency where no feed covers the place, then shows its totals', async () => {
+    setUrl(OKLAHOMA_CITY_URL);
+    const { rerender } = await renderApp();
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Oklahoma City' })).toBeInTheDocument();
+    expectOnlyEnabledCallsFor(OKLAHOMA_CITY);
+    expect(screen.getByText('Finding the local police agency').closest('[role="status"]')).toBeInTheDocument();
+    expect(screen.getByText('Finding the local police agency…')).toHaveClass('place__source');
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    expectNoLocalFeed();
+
+    reportAreaSummary({ status: 'ready', result: AGENCY_RESULT });
+    rerender(<App />);
+    expect(screen.getByTestId('jurisdiction-finding')).toBeInTheDocument();
+    expect(screen.queryByText('Finding the local police agency')).not.toBeInTheDocument();
+    expectOnlyEnabledCallsFor(OKLAHOMA_CITY);
+    expectNoLocalFeed();
+  });
+
+  it('answers with the agency\'s FBI totals for its whole jurisdiction', async () => {
+    reportAreaSummary({ status: 'ready', result: AGENCY_RESULT });
+    setUrl(OKLAHOMA_CITY_URL);
+    const { user } = await renderApp();
+
+    const finding = screen.getByTestId('jurisdiction-finding');
+    expect(within(finding).getByRole('heading', { level: 2 }))
+      .toHaveTextContent(/as many violent offenses per resident as Oklahoma overall$/);
+    expect(screen.getByText('FBI totals · Fixture City Police Department')).toBeInTheDocument();
+    expect(screen.getByTestId('precision-tag')).toHaveTextContent('Whole jurisdiction');
+    // FBI totals have no individual reports to list.
+    const tabs = within(screen.getByRole('tablist', { name: 'Evidence views' })).getAllByRole('tab');
+    expect(tabs.map((tab) => tab.textContent)).toEqual(['Overview', 'About the data']);
+    expect(screen.getByTestId('violent-count')).toHaveTextContent('144');
+    expectNoLocalFeed();
+
+    await openTab(user, 'About the data');
+    expect(screen.getByRole('heading', { level: 3, name: 'How the FBI fallback works' })).toBeInTheDocument();
+  });
+
+  it('gives statewide rates as context when no agency matches the point', async () => {
+    reportAreaSummary({ status: 'ready', result: STATE_RESULT });
+    setUrl(OKLAHOMA_CITY_URL);
+    await renderApp();
+
+    const finding = screen.getByTestId('state-finding');
+    expect(within(finding).getByRole('heading', { level: 2, name: 'No local police totals for this point' }))
+      .toBeInTheDocument();
+    expect(finding).toHaveTextContent('Oklahoma overall: 40 violent offenses per 100,000 residents a year (US: 30)');
+    expect(screen.getByText('FBI statewide rates · Oklahoma')).toBeInTheDocument();
+    expect(screen.queryByTestId('jurisdiction-finding')).not.toBeInTheDocument();
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    expectNoLocalFeed();
+  });
+
+  it('keeps only the map for a point outside US coverage', async () => {
+    reportAreaSummary({ status: 'ready', result: OUTSIDE_RESULT });
+    setUrl('?lat=43.65320&lng=-79.38320&place=Toronto&detail=Ontario');
+    await renderApp();
+
+    expectOnlyEnabledCallsFor([-79.3832, 43.6532]);
+    const outside = screen.getByTestId('outside-coverage');
+    expect(within(outside).getByRole('heading', { level: 2, name: 'Outside US coverage' })).toBeInTheDocument();
+    expect(outside).toHaveTextContent('Toronto is not inside a US state');
+    expect(screen.getByText('Map only · outside US coverage')).toBeInTheDocument();
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    expectNoLocalFeed();
+  });
+
+  it('explains a failed agency lookup and retries it through the hook', async () => {
+    reportAreaSummary({ status: 'error', error: 'Census TIGERweb returned HTTP 502.' });
+    setUrl(OKLAHOMA_CITY_URL);
+    const { user } = await renderApp();
+
+    const alert = screen.getByRole('alert');
+    expect(within(alert).getByRole('heading', { level: 2, name: 'Couldn\'t find the local police agency' }))
+      .toBeInTheDocument();
+    expect(alert).toHaveTextContent('Census TIGERweb returned HTTP 502.');
+    expect(screen.getByText('FBI totals · unavailable')).toBeInTheDocument();
+    expect(refreshAreaSummary).not.toHaveBeenCalled();
+
+    await user.click(within(alert).getByRole('button', { name: 'Try again' }));
+    expect(refreshAreaSummary).toHaveBeenCalledOnce();
+    expectNoLocalFeed();
+  });
+
+  it('switches between the local feed and FBI totals as the place moves', async () => {
+    reportAreaSummary({ status: 'ready', result: AGENCY_RESULT });
+    installGeolocation(vi.fn((success: (position: { coords: { longitude: number; latitude: number } }) => void) => {
+      success({ coords: { longitude: OKLAHOMA_CITY[0], latitude: OKLAHOMA_CITY[1] } });
+    }));
+    const { user } = await renderReadyApp();
+    await openTab(user, /^Reports/);
+    expect(map()).toHaveAttribute('data-rings', 'true');
+    expect(areaSummaryCalls().at(-1)).toEqual({ center: TIMES_SQUARE, enabled: false });
+    const feedLoads = mockedLoadEvidence.mock.calls.length;
+
+    await user.click(screen.getByRole('button', { name: 'Use my location' }));
+    expect(screen.getByRole('heading', { level: 1, name: 'Your location' })).toBeInTheDocument();
+    expect(areaSummaryCalls().at(-1)).toEqual({ center: OKLAHOMA_CITY, enabled: true });
+    expect(screen.getByTestId('jurisdiction-finding')).toBeInTheDocument();
+    // Reports has no FBI counterpart, so the panel shows the overview instead.
+    expect(screen.queryByRole('tab', { name: /^Reports/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true');
+    expect(map()).toHaveAttribute('data-rings', 'false');
+    expect(map()).toHaveAttribute('data-locations', '');
+    expect(screen.queryByRole('group', { name: 'Analysis settings' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Map key' })).not.toBeInTheDocument();
+    expect(mockedLoadEvidence).toHaveBeenCalledTimes(feedLoads);
+
+    await chooseFeaturedPlace(user, 'Union Square');
+    await screen.findByRole('tablist', { name: 'Evidence views' });
+    expect(areaSummaryCalls().at(-1)).toEqual({ center: UNION_SQUARE, enabled: false });
+    expect(screen.queryByTestId('jurisdiction-finding')).not.toBeInTheDocument();
+    expect(map()).toHaveAttribute('data-rings', 'true');
+    const [lng, lat] = UNION_SQUARE;
+    expect(map()).toHaveAttribute('data-locations', `${locationKey([lng + 0.001, lat])}|${locationKey([lng - 0.001, lat])}`);
+    expect(screen.getByRole('group', { name: 'Analysis settings' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Map key' })).toBeInTheDocument();
+    expect(mockedLoadEvidence).toHaveBeenLastCalledWith(
+      expect.objectContaining({ meta: expect.objectContaining({ id: 'san-francisco' }) }),
+      expect.objectContaining({ center: UNION_SQUARE }),
+    );
   });
 });

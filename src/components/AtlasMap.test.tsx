@@ -6,6 +6,7 @@ import { AtlasMap, MAP_LOAD_TIMEOUT_MS, type AtlasMapProps, type MapPadding } fr
 import {
   atlasLayers,
   COMPACT_FIT_RADIUS_MULTIPLIER,
+  emptyFeatureCollection,
   fitBoundsFor,
   groupIncidentsByLocation,
   LOCATION_LAYER,
@@ -888,6 +889,106 @@ describe('AtlasMap data updates', () => {
     expect(source(map, SOURCE_RINGS).setData).toHaveBeenCalledTimes(ringCalls + 1);
     expect(lastData(map, SOURCE_RINGS)).toEqual(ringFeatureCollection(CENTER, 2000));
     expect(lastData(map, SOURCE_RING_LABELS)).toEqual(ringLabelFeatureCollection(CENTER, 2000));
+  });
+});
+
+describe('AtlasMap rings', () => {
+  function expectRings(map: FakeMap, center: Coordinates, radiusMeters: number) {
+    expect(lastData(map, SOURCE_RINGS)).toEqual(ringFeatureCollection(center, radiusMeters));
+    expect(lastData(map, SOURCE_RING_LABELS)).toEqual(ringLabelFeatureCollection(center, radiusMeters));
+  }
+
+  function expectNoRings(map: FakeMap) {
+    expect(lastData(map, SOURCE_RINGS)).toEqual(emptyFeatureCollection());
+    expect(lastData(map, SOURCE_RING_LABELS)).toEqual(emptyFeatureCollection());
+  }
+
+  it('draws no circle when rings are off, but still shows the report locations', () => {
+    const { rerender } = renderMap({ showRings: false });
+    const map = currentMap();
+    map.style = { glyphs: 'glyphs' };
+    loadMap(map);
+
+    expect([...map.sources.keys()]).toEqual([SOURCE_RINGS, SOURCE_LOCATIONS, SOURCE_RING_LABELS]);
+    expect(map.layers).toEqual([...atlasLayers('light'), ringLabelLayer('light')]);
+    expectNoRings(map);
+    expect(lastData(map, SOURCE_LOCATIONS)).toEqual(locationFeatureCollection(LOCATIONS, null));
+    // The map is still framed on the point and becomes ready as usual.
+    expect(lastFit(map)).toEqual([fitBoundsFor(CENTER, 1000), { padding: framed(NO_PADDING), duration: 0, maxZoom: 16 }]);
+    act(() => map.emit('idle'));
+    expect(stage()).toHaveAttribute('data-map-ready', 'true');
+
+    const ringCalls = source(map, SOURCE_RINGS).setData.mock.calls.length;
+    rerender({ center: [-87.6, 41.9], radiusMeters: 2000, selectedKey: LOCATIONS[0]!.key });
+    expect(source(map, SOURCE_RINGS).setData).toHaveBeenCalledTimes(ringCalls + 1);
+    expectNoRings(map);
+    expect(lastData(map, SOURCE_LOCATIONS)).toEqual(locationFeatureCollection(LOCATIONS, LOCATIONS[0]!.key));
+  });
+
+  it('keeps the rings off when the style reloads', () => {
+    renderMap({ showRings: false });
+    const map = currentMap();
+    loadMap(map, 'load');
+    loadMap(map, 'style.load');
+    expect(source(map, SOURCE_RINGS).setData).toHaveBeenCalledTimes(2);
+    expectNoRings(map);
+  });
+
+  it('clears and redraws the rings when the setting changes', () => {
+    const { rerender } = renderMap();
+    const map = currentMap();
+    loadMap(map);
+    expectRings(map, CENTER, 1000);
+    const locationCalls = source(map, SOURCE_LOCATIONS).setData.mock.calls.length;
+
+    rerender({ showRings: false });
+    expectNoRings(map);
+    expect(source(map, SOURCE_LOCATIONS).setData).toHaveBeenCalledTimes(locationCalls + 1);
+    expect(lastData(map, SOURCE_LOCATIONS)).toEqual(locationFeatureCollection(LOCATIONS, null));
+
+    rerender({ radiusMeters: 500 });
+    expectNoRings(map);
+
+    // Switching back draws the circle for the current radius, not the one it was hidden at.
+    rerender({ showRings: true });
+    expectRings(map, CENTER, 500);
+  });
+
+  it('defaults to drawing the rings when the setting is omitted', () => {
+    const { props, rerender } = renderMap({ showRings: false });
+    const map = currentMap();
+    loadMap(map);
+    expectNoRings(map);
+    delete props.showRings;
+    rerender({});
+    expectRings(map, CENTER, 1000);
+  });
+
+  it('uses the latest setting when the style finishes loading', () => {
+    const { rerender } = renderMap();
+    const map = currentMap();
+    rerender({ showRings: false });
+    expect(map.sources.size).toBe(0);
+    loadMap(map);
+    expectNoRings(map);
+
+    // Updates are dropped while a new style loads; the reload draws whatever is current.
+    map.styleLoaded = false;
+    rerender({ showRings: true });
+    expectNoRings(map);
+    loadMap(map, 'style.load');
+    expectRings(map, CENTER, 1000);
+  });
+
+  it('keeps the rings off on the map rebuilt for a new theme', () => {
+    const { rerender } = renderMap({ showRings: false });
+    loadMap(currentMap());
+    rerender({ theme: 'dark' });
+    const second = currentMap();
+    loadMap(second);
+    expect(second.layers).toEqual(atlasLayers('dark'));
+    expectNoRings(second);
+    expect(lastData(second, SOURCE_LOCATIONS)).toEqual(locationFeatureCollection(LOCATIONS, null));
   });
 });
 

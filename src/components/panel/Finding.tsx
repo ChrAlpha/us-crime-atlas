@@ -12,13 +12,22 @@ import {
 import type { AnalysisResult, EvidenceBand, EvidenceBundle } from '../../types';
 import { InfoIcon, WarningIcon } from '../Icons';
 
-export function ComparisonScale({ ratio, band }: { ratio: number; band: EvidenceBand }) {
+export function ComparisonScale({
+  ratio,
+  band,
+  reference = "the surrounding area's rate",
+}: {
+  ratio: number;
+  band: EvidenceBand;
+  /** What the ratio is relative to, for the text alternative. */
+  reference?: string;
+}) {
   const position = scalePosition(ratio);
   const edge = position > 0.88 ? 'end' : position < 0.12 ? 'start' : 'middle';
   const marker = { '--at': `${position * 100}%` } as CSSProperties;
   return (
     <figure
-      aria-label={`${formatRatio(ratio)} the surrounding area's rate (${BAND_LABELS[band].toLowerCase()}).`}
+      aria-label={`${formatRatio(ratio)} ${reference} (${BAND_LABELS[band].toLowerCase()}).`}
       className="scale"
       role="img"
     >

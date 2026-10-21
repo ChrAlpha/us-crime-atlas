@@ -236,6 +236,14 @@ describe('query URLs', () => {
     expect(latest.get('$select')).toBe('max(occurred) AS latest_record');
     expect(latest.get('$where')).toBe(`occurred >= '${lookback}' AND occurred < '2026-10-22'`);
   });
+
+  it('adds a reviewed filter to page, count and latest-record queries', () => {
+    const filtered = config({ filter: "kind IN ('THEFT', 'ROBBERY') OR kind = 'ASSAULT'" });
+    const clause = " AND (kind IN ('THEFT', 'ROBBERY') OR kind = 'ASSAULT')";
+    expect(params(buildSocrataQueryUrl(filtered, PAIR_FIELDS, QUERY)).search.get('$where')).toMatch(new RegExp(`${clause.replace(/[()]/g, '\\$&')}$`));
+    expect(params(buildSocrataCountUrl(filtered, PAIR_FIELDS, QUERY)).search.get('$where')?.endsWith(clause)).toBe(true);
+    expect(params(buildSocrataLatestUrl(filtered, PAIR_FIELDS, Date.parse('2026-10-21T22:30:00Z'))).search.get('$where')?.endsWith(clause)).toBe(true);
+  });
 });
 
 describe('response parsing', () => {

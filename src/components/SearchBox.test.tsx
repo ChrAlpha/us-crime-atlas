@@ -2,15 +2,41 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FEATURED_PLACES } from '../data/providers';
+import { haversineDistance } from '../domain/geo';
 import { clearPlaceSearchCache } from '../hooks/usePlaceSearch';
 import type { SelectedPlace } from '../types';
-import { matchingFeaturedPlaces, SearchBox, type SearchBoxProps } from './SearchBox';
+import { matchingFeaturedPlaces, SearchBox, SUGGESTION_LIMIT, type SearchBoxProps } from './SearchBox';
 
+const featured = (label: string) => FEATURED_PLACES.find((place) => place.label === label)!;
 const TIMES_SQUARE = FEATURED_PLACES[0]!;
-const THE_LOOP = FEATURED_PLACES.find((place) => place.label === 'The Loop')!;
-const PIKE_PLACE = FEATURED_PLACES.find((place) => place.label === 'Pike Place')!;
+const THE_LOOP = featured('The Loop');
+const PIKE_PLACE = featured('Pike Place');
 const FIELD_NAME = 'Search a US address, hotel, or landmark';
 const COVERED_LIST = 'Places with official incident data';
+const labels = (places: readonly SelectedPlace[]) => places.map((place) => place.label);
+/** The covered places closest to Times Square, nearest first. */
+const NEAREST_TIMES_SQUARE = ['Times Square', 'Center City', 'Bushnell Park', 'Inner Harbor', 'Faneuil Hall', 'Downtown Bethesda'];
+/** Every covered place in California, nearest to Times Square first: two more than the menu lists. */
+const CALIFORNIA_FROM_TIMES_SQUARE = [
+  'Mission Inn',
+  'Hollywood',
+  'Downtown Bakersfield',
+  'Old Sacramento',
+  'Downtown Berkeley',
+  'Lake Merritt',
+  'Union Square',
+  'Downtown San Mateo',
+];
+/** "ton" (Boston, Washington, Arlington, …): exactly one more than the menu lists, from Times Square. */
+const TON_FROM_TIMES_SQUARE = [
+  'Faneuil Hall',
+  'National Mall',
+  'Charleston City Market',
+  'Louisiana State Capitol',
+  'AT&T Stadium',
+  'Pike Place',
+  'Museum of Glass',
+];
 
 const SEARCH_RESULTS = [
   {
@@ -53,25 +79,59 @@ const submitButton = () => screen.getByRole('button', { name: 'Search' });
 const coveredList = () => screen.queryByRole('list', { name: COVERED_LIST });
 const coveredLabels = () => within(coveredList()!).getAllByRole('button')
   .map((button) => button.querySelector('strong')!.textContent);
+const moreLine = () => document.querySelector('.search__more');
 
 beforeEach(() => {
   clearPlaceSearchCache();
 });
 
 describe('matchingFeaturedPlaces', () => {
-  it('offers every covered place before anything is typed', () => {
-    expect(matchingFeaturedPlaces('')).toBe(FEATURED_PLACES);
-    expect(matchingFeaturedPlaces('   ')).toBe(FEATURED_PLACES);
+  it('offers every covered place, nearest first, before anything is typed', () => {
+    for (const query of ['', '   ']) {
+      const places = matchingFeaturedPlaces(query, TIMES_SQUARE.coordinates);
+      expect(places).toHaveLength(FEATURED_PLACES.length);
+      expect(new Set(places)).toEqual(new Set(FEATURED_PLACES));
+      expect(labels(places).slice(0, SUGGESTION_LIMIT)).toEqual(NEAREST_TIMES_SQUARE);
+      const distances = places.map((place) => haversineDistance(TIMES_SQUARE.coordinates, place.coordinates));
+      expect(distances).toEqual([...distances].sort((left, right) => left - right));
+    }
+  });
+
+  it('orders by distance from the point it is given', () => {
+    expect(labels(matchingFeaturedPlaces('', PIKE_PLACE.coordinates)).slice(0, 3))
+      .toEqual(['Pike Place', 'Museum of Glass', 'Old Sacramento']);
+    expect(labels(matchingFeaturedPlaces('ton', PIKE_PLACE.coordinates))).toEqual([
+      'Pike Place',
+      'Museum of Glass',
+      'AT&T Stadium',
+      'Louisiana State Capitol',
+      'National Mall',
+      'Charleston City Market',
+      'Faneuil Hall',
+    ]);
+  });
+
+  it('returns a new array each time and leaves the featured order alone', () => {
+    const before = labels(FEATURED_PLACES);
+    const first = matchingFeaturedPlaces('', PIKE_PLACE.coordinates);
+    const second = matchingFeaturedPlaces('', PIKE_PLACE.coordinates);
+
+    expect(first).not.toBe(FEATURED_PLACES);
+    expect(second).not.toBe(first);
+    expect(second).toEqual(first);
+    expect(labels(FEATURED_PLACES)).toEqual(before);
+    expect(FEATURED_PLACES[0]).toBe(TIMES_SQUARE);
   });
 
   it('matches the label or the detail, ignoring case and outer spaces', () => {
-    expect(matchingFeaturedPlaces('times').map((place) => place.label)).toEqual(['Times Square']);
-    expect(matchingFeaturedPlaces('chicago').map((place) => place.label)).toEqual(['The Loop']);
-    expect(matchingFeaturedPlaces('  CALIFORNIA ').map((place) => place.label)).toEqual(['Hollywood', 'Union Square']);
+    expect(labels(matchingFeaturedPlaces('times', THE_LOOP.coordinates))).toEqual(['Times Square']);
+    expect(labels(matchingFeaturedPlaces('chicago', TIMES_SQUARE.coordinates))).toEqual(['The Loop']);
+    expect(labels(matchingFeaturedPlaces('  CALIFORNIA ', TIMES_SQUARE.coordinates))).toEqual(CALIFORNIA_FROM_TIMES_SQUARE);
+    expect(labels(matchingFeaturedPlaces('ton', TIMES_SQUARE.coordinates))).toEqual(TON_FROM_TIMES_SQUARE);
   });
 
   it('returns nothing for a place without official data', () => {
-    expect(matchingFeaturedPlaces('Boise')).toEqual([]);
+    expect(matchingFeaturedPlaces('Boise', TIMES_SQUARE.coordinates)).toEqual([]);
   });
 });
 
@@ -89,8 +149,32 @@ describe('SearchBox', () => {
     expect(menu()).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Use my location' })).toBeEnabled();
     expect(screen.getByRole('heading', { level: 2, name: COVERED_LIST })).toBeInTheDocument();
-    expect(coveredLabels()).toEqual(FEATURED_PLACES.map((place) => place.label));
+    expect(coveredLabels()).toEqual(NEAREST_TIMES_SQUARE);
     expect(screen.queryByText(/Press Enter/)).not.toBeInTheDocument();
+  });
+
+  it('lists only the nearest covered places and says how to find the rest', async () => {
+    const user = userEvent.setup();
+    render(<SearchBox {...props()} />);
+    await user.click(field());
+
+    expect(coveredLabels()).toHaveLength(SUGGESTION_LIMIT);
+    expect(SUGGESTION_LIMIT).toBe(6);
+    const more = moreLine()!;
+    expect(more.tagName).toBe('P');
+    expect(more).toHaveTextContent(
+      new RegExp(`^Nearest ${SUGGESTION_LIMIT} of ${FEATURED_PLACES.length}\\. Type a city or state to find the rest\\.$`),
+    );
+    expect(more.previousElementSibling).toBe(coveredList());
+  });
+
+  it('lists the places nearest the place being shown', async () => {
+    const user = userEvent.setup();
+    render(<SearchBox {...props({ place: PIKE_PLACE })} />);
+    await user.click(field());
+
+    expect(coveredLabels()).toEqual(['Pike Place', 'Museum of Glass', 'Old Sacramento', 'Downtown Berkeley', 'Lake Merritt', 'Union Square']);
+    expect(moreLine()).toHaveTextContent(`Nearest 6 of ${FEATURED_PLACES.length}.`);
   });
 
   it('marks the covered place being shown', async () => {
@@ -99,16 +183,33 @@ describe('SearchBox', () => {
     await user.click(field());
 
     const list = within(coveredList()!);
+    expect(coveredLabels()[0]).toBe('The Loop');
     const current = list.getByRole('button', { name: /^The Loop/ });
     expect(current).toHaveAttribute('aria-current', 'location');
     expect(within(current).getByText('Showing')).toHaveClass('search__badge');
-    expect(list.getByRole('button', { name: /^Times Square/ })).not.toHaveAttribute('aria-current');
+    expect(within(current).getByText('Showing')).not.toHaveClass('is-covered');
+    expect(list.getByRole('button', { name: /^Paramount Theatre/ })).not.toHaveAttribute('aria-current');
     expect(list.getAllByText('Showing')).toHaveLength(1);
 
     // Same longitude, different latitude: not the same point.
     rerender(<SearchBox {...props({ place: { label: 'Dropped pin', detail: '', coordinates: [THE_LOOP.coordinates[0], 42.5] } })} />);
     expect(list.queryByText('Showing')).not.toBeInTheDocument();
     expect(list.getAllByRole('button').filter((button) => button.hasAttribute('aria-current'))).toEqual([]);
+  });
+
+  it('keeps marking the place being shown among typed matches', async () => {
+    const user = userEvent.setup();
+    render(<SearchBox {...props({ place: PIKE_PLACE })} />);
+
+    await user.type(field(), 'ton');
+
+    expect(coveredLabels().slice(0, 2)).toEqual(['Pike Place', 'Museum of Glass']);
+    const list = within(coveredList()!);
+    const current = list.getByRole('button', { name: /^Pike Place/ });
+    expect(current).toHaveAttribute('aria-current', 'location');
+    expect(within(current).getByText('Showing')).toHaveClass('search__badge');
+    expect(list.getAllByText('Showing')).toHaveLength(1);
+    expect(list.getByRole('button', { name: /^Museum of Glass/ })).not.toHaveAttribute('aria-current');
   });
 
   it('uses the current location and closes the menu', async () => {
@@ -144,10 +245,11 @@ describe('SearchBox', () => {
     const user = userEvent.setup();
     render(<SearchBox {...props()} />);
 
-    await user.type(field(), 'cali');
+    await user.type(field(), 'ohio');
 
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(coveredLabels()).toEqual(['Hollywood', 'Union Square']);
+    expect(coveredLabels()).toEqual(['Rock & Roll Hall of Fame', 'Short North', 'Fountain Square']);
+    expect(moreLine()).not.toBeInTheDocument();
     expect(screen.getByText('Press Enter to search every US address')).toHaveClass('search__hint');
     expect(screen.queryByRole('button', { name: 'Use my location' })).not.toBeInTheDocument();
     expect(submitButton()).toBeEnabled();
@@ -157,8 +259,47 @@ describe('SearchBox', () => {
 
     expect(coveredList()).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: COVERED_LIST })).not.toBeInTheDocument();
+    expect(moreLine()).not.toBeInTheDocument();
     expect(screen.getByText('Press Enter to search every US address')).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('counts the typed matches beyond the list, in the singular for one', async () => {
+    const user = userEvent.setup();
+    render(<SearchBox {...props()} />);
+
+    await user.type(field(), 'ton');
+
+    expect(coveredLabels()).toEqual(TON_FROM_TIMES_SQUARE.slice(0, SUGGESTION_LIMIT));
+    expect(moreLine()).toHaveTextContent(/^1 more place matches\. Keep typing to narrow the list\.$/);
+  });
+
+  it('counts the typed matches beyond the list, in the plural for several', async () => {
+    const user = userEvent.setup();
+    render(<SearchBox {...props()} />);
+
+    await user.type(field(), '  California ');
+
+    expect(coveredLabels()).toEqual(CALIFORNIA_FROM_TIMES_SQUARE.slice(0, SUGGESTION_LIMIT));
+    expect(moreLine()).toHaveTextContent(/^2 more places match\. Keep typing to narrow the list\.$/);
+    expect(screen.queryByText(/^Nearest/)).not.toBeInTheDocument();
+  });
+
+  it('drops the count once typing narrows the matches to the list', async () => {
+    const user = userEvent.setup();
+    render(<SearchBox {...props()} />);
+
+    await user.type(field(), 'downtown');
+    expect(coveredLabels()).toHaveLength(SUGGESTION_LIMIT);
+    expect(moreLine()).toHaveTextContent(/^2 more places match\./);
+
+    await user.type(field(), ' d');
+    expect(coveredLabels()).toEqual(['Downtown Detroit', 'Downtown Dallas', 'Downtown Denver']);
+    expect(moreLine()).not.toBeInTheDocument();
+
+    await user.clear(field());
+    expect(coveredLabels()).toEqual(NEAREST_TIMES_SQUARE);
+    expect(moreLine()).toHaveTextContent(/^Nearest 6 of /);
   });
 
   it('opens the menu when typing after it was closed', async () => {
@@ -171,7 +312,7 @@ describe('SearchBox', () => {
 
     await user.keyboard('texas');
     expect(menu()).toBeInTheDocument();
-    expect(coveredLabels()).toEqual(['Downtown Dallas']);
+    expect(coveredLabels()).toEqual(['Downtown Dallas', 'AT&T Stadium']);
   });
 
   it('chooses a covered place, then clears the query and closes the menu', async () => {
@@ -253,7 +394,8 @@ describe('SearchBox', () => {
     // Blank text still shows the starting menu, plus a way to clear it.
     expect(screen.getByRole('button', { name: 'Use my location' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Clear search' })).toBeInTheDocument();
-    expect(coveredLabels()).toHaveLength(FEATURED_PLACES.length);
+    expect(coveredLabels()).toEqual(NEAREST_TIMES_SQUARE);
+    expect(moreLine()).toHaveTextContent(`Nearest 6 of ${FEATURED_PLACES.length}. Type a city or state to find the rest.`);
   });
 
   it('shows validation and service errors', async () => {
@@ -291,7 +433,7 @@ describe('SearchBox', () => {
 
     await user.click(field());
     expect(screen.queryByRole('list', { name: 'Search results' })).not.toBeInTheDocument();
-    expect(coveredLabels()).toHaveLength(FEATURED_PLACES.length);
+    expect(coveredLabels()).toEqual(NEAREST_TIMES_SQUARE);
   });
 
   it('clears the query and results and keeps the field focused', async () => {

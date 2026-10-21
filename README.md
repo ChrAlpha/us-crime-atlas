@@ -18,15 +18,64 @@ The atlas deliberately avoids an opaque “safety score.” It shows observed in
 | Denver | Denver Police Department | ArcGIS Feature Service | Approximate hundred-meter grid |
 | Los Angeles | Los Angeles Police Department | Socrata | Approximate block |
 | San Francisco | San Francisco Police Department | Socrata | Nearby intersection |
+| Oakland | Oakland Police Department | Socrata | Block address |
 | Seattle | Seattle Police Department | Socrata | Approximate one-hundred block |
+| Boston, MA | Boston Police Department | ArcGIS Feature Service | Approximate, ~100 m grid |
+| Hartford, CT | Hartford Police Department | ArcGIS Feature Service | Hundred block, ~100 m grid |
+| Rochester, NY | Rochester Police Department | ArcGIS Feature Service | Hundred block, ~100 m grid |
+| Buffalo, NY | Buffalo Police Department | Socrata | Hundred block, ~100 m grid |
+| Cleveland, OH | Cleveland Division of Police | ArcGIS Feature Service | Hundred block, ~100 m grid |
+| Columbus, OH | Columbus Division of Police | ArcGIS Feature Service | Hundred block or intersection, ~100 m grid |
+| Cincinnati, OH | Cincinnati Police Department | Socrata | Generalized block, offset point |
+| Indianapolis, IN | Indianapolis Metropolitan Police Department | ArcGIS Feature Service | Hundred block |
+| Aurora, IL | Aurora Police Department | ArcGIS Feature Service | Hundred block or intersection, ~100 m grid |
+| Minneapolis, MN | Minneapolis Police Department | ArcGIS Feature Service | Hundred-block center |
+| Des Moines, IA | Des Moines Police Department | ArcGIS Feature Service | Anonymized hundred block |
+| Kansas City, MO | Kansas City Missouri Police Department | Socrata | Hundred block or intersection |
+| Omaha, NE | Omaha Police Department | ArcGIS Feature Service | Hundred block |
+| Baltimore, MD | Baltimore Police Department | ArcGIS Feature Service | Hundred block, ~100 m grid |
+| Montgomery County, MD | Montgomery County Police Department (with Rockville, Gaithersburg, Takoma Park police) | Socrata | Hundred block |
+| Raleigh, NC | Raleigh Police Department | ArcGIS Feature Service | Hundred block, ~100 m grid |
+| Charleston, SC | Charleston Police Department | ArcGIS Feature Service | Block or intersection, ~100 m grid |
+| Charlotte, NC | Charlotte-Mecklenburg Police Department | ArcGIS Map Service | Hundred block |
+| Orlando, FL | Orlando Police Department | ArcGIS Feature Service | Neighborhood, ~100 m grid |
+| Jacksonville, FL | Jacksonville Sheriff's Office | ArcGIS Feature Service | Hundred block, ~100 m grid |
+| Tampa, FL | Tampa Police Department | ArcGIS Feature Service | Nearest intersection |
+| Atlanta, GA | Atlanta Police Department | ArcGIS Feature Service | Hundred block, ~100 m grid |
+| Memphis, TN | Memphis Police Department | ArcGIS Feature Service | Hundred block, ~100 m grid (publisher-rounded) |
+| New Orleans, LA (calls for service) | New Orleans Police Department | Socrata | Hundred block or intersection |
+| Baton Rouge, LA | Baton Rouge Police Department | Socrata | Hundred block, ~100 m grid |
+| Arlington, TX | Arlington Police Department | ArcGIS Map Service | Police beat, ~100 m grid |
+| Berkeley, CA | Berkeley Police Department | ArcGIS Feature Service | Block or intersection, ~100 m grid |
+| San Mateo, CA | San Mateo Police Department | ArcGIS Feature Service | Hundred block, ~100 m grid |
+| Sacramento, CA | Sacramento Police Department | ArcGIS Feature Service | Masked block or intersection, ~100 m grid |
+| Bakersfield, CA | Bakersfield Police Department | ArcGIS Feature Service | Approximate public location, ~100 m grid |
+| Riverside, CA | Riverside Police Department | ArcGIS Feature Service | Block or intersection, ~100 m grid |
+| Las Vegas, NV (incl. the Strip) | Las Vegas Metropolitan Police Department | ArcGIS Feature Service | Hundred block or intersection, ~100 m grid |
+| Tucson, AZ | Tucson Police Department | ArcGIS Feature Service | Skewed public point, block address |
+| Tempe, AZ | Tempe Police Department | ArcGIS Feature Service | Obfuscated block, ~100 m grid |
+| Mesa, AZ | Mesa Police Department | Socrata | Hundred block |
+| Salt Lake City, UT | Salt Lake City Police Department | ArcGIS Feature Service | Nearest intersection |
+| Boulder, CO | Boulder Police Department | ArcGIS Feature Service | Masked block, ~100 m grid |
+| Aurora, CO | Aurora Police Department | ArcGIS Feature Service | Approximate public location, ~100 m grid |
+| Colorado Springs, CO | Colorado Springs Police Department | Socrata | Hundred block |
+| Tacoma, WA | Tacoma Police Department | ArcGIS Feature Service | Anonymized hundred block, ~100 m grid |
 
-The map and place search work throughout the United States. Incident analysis is enabled only inside the legal limits of a city with a verified provider adapter (Census TIGERweb boundaries), so unsupported areas, including neighboring cities such as Jersey City or Beverly Hills, never silently receive fabricated events, a falsely quiet result, a citywide average, or a national proxy.
+The map and place search work throughout the United States. Incident analysis is enabled only inside the legal limits of a city with a verified provider adapter (Census TIGERweb boundaries), so neighboring cities such as Jersey City or Beverly Hills never silently receive another city's events or a falsely quiet result.
 
-The current expansion waves add Dallas, Denver, Detroit, Los Angeles, Nashville, Philadelphia, Seattle, and Washington, DC to the original New York City, Chicago, and San Francisco providers. They accept clearly disclosed lower-precision official locations when exact public points are unavailable, but still exclude feeds without usable recent incident-level geometry or a live reviewed endpoint.
+## Nationwide fallback: FBI jurisdiction totals
+
+Everywhere else in the 50 states and DC, the atlas trades precision for coverage. It identifies the city, town or township, and county around the point through Census TIGERweb, finds the agency that polices it (city police, else town or township police, else the county sheriff or county police), and shows that agency's newest twelve reported months of violent and property offenses from the FBI Crime Data Explorer: counts, rates per 100,000 residents, the state's rate over the same months, and the change from the previous twelve months.
+
+These figures describe a whole jurisdiction, not the selected radius, and the panel says so on every view. There are no incident points and no nearby comparison; agencies that lag, skip months, or serve fewer than 10,000 residents are called out. Where no agency matches, only the statewide rate is shown, as context. Points outside the states remain map-only.
+
+The FBI snapshot is committed per state in `src/data/agencyStats/` and loaded lazily; regenerate it with `pnpm run data:agencies`.
+
+Beyond the first-release cities, regional waves add the Northeast and Midwest, South, and West feeds listed above. They accept clearly disclosed lower-precision official locations, report-time instead of occurrence-time dates, and slower publishers when exact or timely points are unavailable, but still exclude feeds without usable recent incident-level geometry or a live reviewed endpoint. Large cities without such a feed today (for example Houston, Phoenix, San Jose, Miami, and Portland) use the FBI jurisdiction totals.
 
 ## Product behavior
 
-- Search a US hotel, address, landmark, or city through OpenStreetMap Nominatim, or jump to a covered place straight from the search menu.
+- Search a US hotel, address, landmark, or city through OpenStreetMap Nominatim, or jump to one of the nearest covered places straight from the search menu (type a city or state to filter all of them).
 - Click the map, drag the pin, or use browser geolocation to move the analysis point.
 - Analyze a 500 m, 1 km, or 2 km radius over 14, 30, 60, or 90 days, ending at each publisher's newest complete day rather than at "now", so publication lag never reads as quiet days.
 - Filter violent, property, vehicle, weapons, and other incidents from compact setting chips.
@@ -34,6 +83,7 @@ The current expansion waves add Dallas, Denver, Detroit, Los Angeles, Nashville,
 - See the report count and trend, what was reported, and when (by hour of day and by day) in the Overview tab; browse every report in the circle in the Reports tab.
 - Tap a report location on the map, where reports sharing coordinates are drawn as one dot sized by count and colored by its dominant type; the 1 km circle and the dashed comparison ring are labeled on the map.
 - Review the exact date window, source cadence, publication delay, spatial blurring, query completeness, and method in the About the data tab. Incomplete counts are flagged next to the answer; delayed publishers (for example NYPD's quarterly release) are tagged in the place header.
+- Outside the local feeds, read the same answer-first panel for the FBI jurisdiction totals: the agency's violent-offense rate against its state's on the same scale, a visible lower-precision note, twelve months of counts and the year-over-year change in the Overview tab, and the agency and snapshot in the About the data tab. The radius, date, and type settings and the map's circle are hidden there, since whole-jurisdiction totals cannot use them.
 - Share the exact view through URL state.
 - On wide screens, a docked panel sits beside a full-height map. On phones, the map fills the screen under a floating search bar, with the evidence in a bottom sheet that rests at peek (the answer), half, or full height. Light, dark, or device theme.
 
@@ -78,7 +128,7 @@ pnpm run test:e2e:production   # built bundle under /us-crime-atlas/, as GitHub 
 
 `test:e2e` runs against the dev server, which serves dependencies straight from `node_modules`. `test:e2e:production` builds the site for the Pages subpath and checks that every asset, including MapLibre's bundled worker, loads in a browser; the Pages workflow runs it before every deploy.
 
-City limits are committed in `src/data/jurisdictions.json`; regenerate them from Census TIGERweb with `pnpm run data:jurisdictions` when the Census vintage changes.
+City limits are committed in `src/data/jurisdictions.json`; regenerate them from Census TIGERweb with `pnpm run data:jurisdictions` when the Census vintage changes. The FBI fallback snapshot is committed in `src/data/agencyStats/`; regenerate it with `pnpm run data:agencies` after a Crime Data Explorer refresh (about 30,000 cached requests, resumable).
 
 `test:unit` covers domain logic, provider adapters, hooks, components, the map wrapper (with a mocked MapLibre), and the app shell. Coverage is measured over every source file except the entry point and type declarations; thresholds are 98% lines, statements and functions and 95% branches.
 
@@ -103,6 +153,16 @@ Official Socrata datasets             Official ArcGIS feature layers
                                   │
                 ├── MapLibre report-location, circle, and ring layers
                 └── place panel: docked column or bottom sheet
+
+Outside every local feed:
+   Census TIGERweb point query ── place, county subdivision, county
+                                  │
+   committed FBI CDE snapshot ── city → town/township → county agency
+                                  │
+   summarizeAgency ── newest 12 reported months, rate per 100k,
+                      state rate over the same months, prior-year change
+                                  │
+                                  └── same place panel, answer against the state rate
 ```
 
 ```text
@@ -111,6 +171,7 @@ src/
                  plain-language copy (presentation.ts), map colors (palette.ts)
   data/
     evidence.ts  newest record → window → parallel current/previous queries
+    agencyStats  FBI jurisdiction snapshot per state, Census point lookup, agency matching
     providers/   socrata.ts, arcgis.ts (backends), socrataCities.ts, arcgisCities.ts (city contracts)
   hooks/         useIncidentAnalysis, usePlaceSearch, useMediaQuery, useSheet (bottom sheet)
   components/    map, search, filters, place panel and its tabs (panel/); mapLayers.ts holds the map's pure helpers
@@ -130,7 +191,7 @@ The CI workflow requires:
 2. unit and component coverage thresholds across all application source;
 3. a production Vite build;
 4. live official-source and MapLibre-style contracts;
-5. live evidence loads through the real providers for all eleven cities;
+5. live evidence loads through every registered real provider;
 6. Chromium acceptance at desktop, tablet, and iPhone-class viewports;
 7. explicit browser paths through an ArcGIS provider, a metadata-resolved Socrata provider, and a delayed publisher;
 8. horizontal-overflow checks and a serious/critical axe accessibility audit;
