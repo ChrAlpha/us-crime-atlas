@@ -75,15 +75,17 @@ Beyond the first-release cities, regional waves add the Northeast and Midwest, S
 
 ## Product behavior
 
-- Search a US hotel, address, landmark, or city through OpenStreetMap Nominatim.
-- Drop a pin directly on the MapLibre map or use browser geolocation.
+- Search a US hotel, address, landmark, or city through OpenStreetMap Nominatim, or jump to one of the nearest covered places straight from the search menu (type a city or state to filter all of them).
+- Click the map, drag the pin, or use browser geolocation to move the analysis point.
 - Analyze a 500 m, 1 km, or 2 km radius over 14, 30, 60, or 90 days, ending at each publisher's newest complete day rather than at "now", so publication lag never reads as quiet days.
-- Filter violent, property, vehicle, weapons, and other incidents.
-- Inspect raw incident points and clustered context, with lower-opacity observations outside the selected circle.
-- Compare the selected area with the surrounding ring from 1× to 3× the radius, counting only the area inside city limits.
-- Review the exact date window, source cadence, publication delay, spatial blurring, query completeness, and the latest observed report. Delayed publishers (for example NYPD's quarterly release) are called out explicitly.
+- Filter violent, property, vehicle, weapons, and other incidents from compact setting chips.
+- Read the answer first: a plain-language comparison with the surrounding ring from 1× to 3× the radius (for example "4.9× as many reports per km² as the surrounding area"), placed on a Lower / Similar / Higher / Much higher scale, counting only the area inside city limits. There is no safety score.
+- See the report count and trend, what was reported, and when (by hour of day and by day) in the Overview tab; browse every report in the circle in the Reports tab.
+- Tap a report location on the map, where reports sharing coordinates are drawn as one dot sized by count and colored by its dominant type; the 1 km circle and the dashed comparison ring are labeled on the map.
+- Review the exact date window, source cadence, publication delay, spatial blurring, query completeness, and method in the About the data tab. Incomplete counts are flagged next to the answer; delayed publishers (for example NYPD's quarterly release) are tagged in the place header.
+- Outside the local feeds, read the same answer-first panel for the FBI jurisdiction totals: the agency's violent-offense rate against its state's on the same scale, a visible lower-precision note, twelve months of counts and the year-over-year change in the Overview tab, and the agency and snapshot in the About the data tab. The radius, date, and type settings and the map's circle are hidden there, since whole-jurisdiction totals cannot use them.
 - Share the exact view through URL state.
-- Use a purpose-built desktop layout or a single-column mobile flow with collapsible analysis settings, in light and dark themes.
+- On wide screens, a docked panel sits beside a full-height map. On phones, the map fills the screen under a floating search bar, with the evidence in a bottom sheet that rests at peek (the answer), half, or full height. Light, dark, or device theme.
 
 ## Why windows end at the newest published record
 
@@ -149,8 +151,8 @@ Official Socrata datasets             Official ArcGIS feature layers
    analyzeIncidents ── Haversine circle and annulus, equal-window trend,
                        weighted density comparison
                                   │
-                ├── MapLibre clustered GeoJSON layers
-                └── responsive evidence inspector
+                ├── MapLibre report-location, circle, and ring layers
+                └── place panel: docked column or bottom sheet
 
 Outside every local feed:
    Census TIGERweb point query ── place, county subdivision, county
@@ -159,17 +161,20 @@ Outside every local feed:
                                   │
    summarizeAgency ── newest 12 reported months, rate per 100k,
                       state rate over the same months, prior-year change
+                                  │
+                                  └── same place panel, answer against the state rate
 ```
 
 ```text
 src/
-  domain/        pure logic: geo, time, categories, analysis, evidence windows, URL state
+  domain/        pure logic: geo, time, categories, analysis, evidence windows, URL state,
+                 plain-language copy (presentation.ts), map colors (palette.ts)
   data/
     evidence.ts  newest record → window → parallel current/previous queries
     agencyStats  FBI jurisdiction snapshot per state, Census point lookup, agency matching
     providers/   socrata.ts, arcgis.ts (backends), socrataCities.ts, arcgisCities.ts (city contracts)
-  hooks/         useIncidentAnalysis, usePlaceSearch
-  components/    map, panels, dialog; mapLayers.ts holds the map's pure helpers
+  hooks/         useIncidentAnalysis, usePlaceSearch, useMediaQuery, useSheet (bottom sheet)
+  components/    map, search, filters, place panel and its tabs (panel/); mapLayers.ts holds the map's pure helpers
 live/            live contract and runtime suites against official publishers
 e2e/             Playwright acceptance with deterministic source mocks
 ```
@@ -187,10 +192,10 @@ The CI workflow requires:
 3. a production Vite build;
 4. live official-source and MapLibre-style contracts;
 5. live evidence loads through every registered real provider;
-6. Chromium acceptance at desktop and iPhone-class viewports;
+6. Chromium acceptance at desktop, tablet, and iPhone-class viewports;
 7. explicit browser paths through an ArcGIS provider, a metadata-resolved Socrata provider, and a delayed publisher;
 8. horizontal-overflow checks and a serious/critical axe accessibility audit;
-9. retained desktop/mobile screenshots and Playwright traces as workflow artifacts.
+9. retained desktop, tablet, and mobile screenshots and Playwright traces as workflow artifacts.
 
 The detailed release criteria are in [Acceptance criteria](docs/ACCEPTANCE.md).
 

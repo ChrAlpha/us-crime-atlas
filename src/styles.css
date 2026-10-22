@@ -1,7 +1,8 @@
-/* Order matters: later files refine earlier ones. */
-@import './styles/foundation.css';
-@import './styles/search-panel.css';
-@import './styles/evidence-panel.css';
-@import './styles/states-and-dialog.css';
-@import './styles/responsive.css';
-@import './styles/refinements.css';
+@import './styles/tokens.css';
+@import './styles/base.css';
+@import './styles/layout.css';
+@import './styles/search.css';
+@import './styles/filters.css';
+@import './styles/panel.css';
+@import './styles/charts.css';
+@import './styles/map.css';

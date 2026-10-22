@@ -1,0 +1,88 @@
+.bars {
+  margin: 0;
+}
+
+.bars__readout {
+  min-height: 1.5em;
+  margin: 0 0 6px;
+  color: var(--ink-2);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.bars__plot {
+  display: flex;
+  height: 72px;
+  align-items: stretch;
+  gap: 2px;
+  border-bottom: 1px solid var(--line-strong);
+  cursor: crosshair;
+  touch-action: pan-y;
+}
+
+.bars__col {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: flex-end;
+  border-radius: 3px 3px 0 0;
+}
+
+.bars__col.is-shaded {
+  background: var(--surface-3);
+}
+
+.bars__col i {
+  display: block;
+  width: 100%;
+  height: var(--h);
+  border-radius: 3px 3px 0 0;
+  background: var(--ink-2);
+  opacity: 0.72;
+  transition: opacity 120ms var(--ease-out);
+}
+
+.bars__col.is-missing i {
+  height: 6px;
+  border: 1px dashed var(--ink-3);
+  border-bottom: 0;
+  background: transparent;
+  opacity: 1;
+}
+
+.bars__col.is-active i {
+  background: var(--ink-1);
+  opacity: 1;
+}
+
+.bars__col.is-missing.is-active i {
+  border-color: var(--ink-1);
+  background: transparent;
+}
+
+.bars__axis {
+  position: relative;
+  height: 20px;
+}
+
+.bars__axis span {
+  position: absolute;
+  top: 4px;
+  left: var(--x);
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.bars__axis span[data-align="start"] {
+  left: 0;
+  transform: none;
+}
+
+.bars__axis span[data-align="end"] {
+  right: 0;
+  left: auto;
+  transform: none;
+}

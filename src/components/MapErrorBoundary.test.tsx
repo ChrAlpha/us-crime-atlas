@@ -21,8 +21,10 @@ describe('MapErrorBoundary', () => {
     render(<MapErrorBoundary><Exploding /></MapErrorBoundary>);
 
     expect(screen.getByRole('alert')).toHaveTextContent('Map unavailable');
-    expect(screen.getByRole('alert')).toHaveTextContent('Incident evidence and place controls remain available.');
-    await userEvent.click(screen.getByRole('button', { name: 'Reload map' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Search, settings, and the evidence panel still work.');
+    const reloadButton = screen.getByRole('button', { name: 'Reload map' });
+    expect(reloadButton).toHaveClass('button');
+    await userEvent.click(reloadButton);
     expect(reload).toHaveBeenCalledOnce();
   });
 });

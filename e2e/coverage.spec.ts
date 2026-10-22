@@ -1,94 +1,59 @@
 import { expect, test } from '@playwright/test';
 import { mockOfficialSources } from './fixtures';
+import { expectNoHorizontalOverflow, openTab } from './helpers';
 
-async function expectNoHorizontalOverflow(page: import('@playwright/test').Page) {
-  await expect.poll(async () =>
-    page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1),
-  ).toBe(true);
-}
-
-const featuredPlaces = [
-  'Times Square',
-  'National Mall',
-  'Center City',
-  'The Loop',
-  'Downtown Detroit',
-  'Lower Broadway',
-  'Downtown Dallas',
-  'Downtown Denver',
-  'Hollywood',
-  'Union Square',
-  'Lake Merritt',
-  'Pike Place',
+const firstReleaseCities = [
+  'New York City, New York',
+  'Washington, District of Columbia',
+  'Philadelphia, Pennsylvania',
+  'Chicago, Illinois',
+  'Detroit, Michigan',
+  'Nashville, Tennessee',
+  'Dallas, Texas',
+  'Denver, Colorado',
+  'Los Angeles, California',
+  'San Francisco, California',
+  'Oakland, California',
+  'Seattle, Washington',
 ];
 
-test('keeps multi-city navigation and source disclosure usable', async ({ page }, testInfo) => {
+test('lists the nearest covered places in search and every covered city in the source notes', async ({ page }, testInfo) => {
   await mockOfficialSources(page);
   await page.goto('/?e2e=1');
   await expect(page.getByTestId('reported-count')).toHaveText('5');
 
-  const featured = page.getByLabel('Featured covered places');
-  // One featured place per registered provider, first-release cities first.
-  const providerCount = await featured.getByRole('button').count();
-  expect(providerCount).toBeGreaterThan(featuredPlaces.length);
-  for (const label of featuredPlaces) {
-    await expect(featured.getByRole('button', { name: label })).toBeAttached();
-  }
-  await expectNoHorizontalOverflow(page);
+  await page.locator('#place-query').click();
+  const menu = page.getByRole('list', { name: 'Places with official incident data' });
+  // Six at a time, nearest first: Times Square itself leads from Times Square.
+  await expect(menu.getByRole('button')).toHaveCount(6);
+  await expect(menu.getByRole('button').first()).toHaveAttribute('aria-current', 'location');
+  await expect(menu.getByRole('button').first()).toContainText('Times Square');
+  const more = page.locator('.search__more');
+  await expect(more).toContainText(/^Nearest 6 of \d+\. Type a city or state to find the rest\.$/);
+  const total = Number((await more.textContent())!.match(/of (\d+)/)![1]);
+  expect(total).toBeGreaterThan(firstReleaseCities.length);
 
-  if (testInfo.project.name.startsWith('mobile')) {
-    const sourceButton = page.getByRole('button', { name: 'Sources & methodology' });
-    await sourceButton.scrollIntoViewIfNeeded();
-    await sourceButton.click();
-  } else {
-    await page.getByRole('button', { name: 'Sources & methodology' }).click();
-  }
-
-  const dialog = page.getByRole('dialog', { name: 'Sources & methodology' });
-  await expect(dialog).toBeVisible();
-  await expect(dialog.locator('.provider-cards article')).toHaveCount(providerCount);
-  const sectionHeadings = await dialog.locator('.source-dialog__body h3').allTextContents();
-  expect(sectionHeadings[0]).toBe('Current source');
-  expect(sectionHeadings.indexOf('Current source')).toBeLessThan(
-    sectionHeadings.indexOf('How relative activity is calculated'),
-  );
-  expect(sectionHeadings.indexOf('Read these limitations before acting')).toBeLessThan(
-    sectionHeadings.indexOf('Other official local publishers'),
-  );
-  await expect(dialog.getByText('selected weighted incidents / covered selected km²')).toBeVisible();
-  await expect(dialog.getByText('Philadelphia, Pennsylvania')).toBeVisible();
-  await expect(dialog.getByText('Detroit, Michigan')).toBeVisible();
-  await expect(dialog.getByText('Nashville, Tennessee')).toBeVisible();
-  await expect(dialog.getByText('Denver, Colorado')).toBeVisible();
-  await expect(dialog.getByText('Dallas, Texas')).toBeVisible();
-  await expect(dialog.getByText('Los Angeles, California')).toBeVisible();
-  await expect(dialog.getByText('Washington, District of Columbia')).toBeVisible();
-  await expect(dialog.getByText('Seattle, Washington')).toBeVisible();
-  await expectNoHorizontalOverflow(page);
-
-  await page.screenshot({
-    path: `test-results/${testInfo.project.name}-sources.png`,
-    fullPage: true,
-  });
-
-  const closeButton = page.getByRole('button', { name: 'Close sources and methodology' });
-  await expect(closeButton).toBeFocused();
-  await expect(page.locator('html')).toHaveClass(/has-open-dialog/);
-  await page.keyboard.press('Shift+Tab');
-  await expect(dialog.locator(':focus')).toHaveCount(1);
-  await page.keyboard.press('Tab');
-  await expect(closeButton).toBeFocused();
-  await page.locator('#place-query').focus();
-  await page.keyboard.press('Tab');
-  await expect(closeButton).toBeFocused();
-  await closeButton.click();
-  await expect(dialog).toBeHidden();
-  await expect(page.locator('html')).not.toHaveClass(/has-open-dialog/);
-  const sourceButton = page.getByRole('button', { name: 'Sources & methodology' });
-  await expect(sourceButton).toBeFocused();
-  await sourceButton.click();
-  await expect(dialog).toBeVisible();
+  // Typing filters every covered place locally, without a network request.
+  await page.locator('#place-query').fill('seattle');
+  await expect(menu.getByRole('button')).toHaveCount(1);
+  await expect(menu.getByRole('button', { name: /^Pike Place\b/ })).toBeVisible();
+  await page.locator('#place-query').fill('california');
+  await expect(menu.getByRole('button')).toHaveCount(6);
+  await expect(more).toContainText(/more places? match/);
   await page.keyboard.press('Escape');
-  await expect(dialog).toBeHidden();
-  await expect(sourceButton).toBeFocused();
+  await expectNoHorizontalOverflow(page);
+
+  await openTab(page, testInfo, 'About the data');
+  const section = page.locator('.covered-section');
+  await expect(section).not.toHaveAttribute('open');
+  await expect(section.locator('.covered-section__count')).toHaveText(String(total));
+  await section.locator('summary').click();
+  const cities = section.locator('.covered li');
+  await expect(cities).toHaveCount(total);
+  for (const city of firstReleaseCities) {
+    await expect(cities.filter({ hasText: city })).toHaveCount(1);
+  }
+  await expect(cities.filter({ hasText: 'New York City, New York' })).toContainText('Showing');
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: `test-results/${testInfo.project.name}-covered-cities.png`, fullPage: true });
 });

@@ -1,0 +1,81 @@
+/*
+ * Design tokens. Neutrals lean warm (hue 85) and stay quiet so the five report colors carry
+ * the color on screen. Group colors are validated as a set for color-vision deficiency and
+ * mirror `src/domain/palette.ts`, which the map uses.
+ */
+:root {
+  color-scheme: light;
+  --font-sans: "Figtree Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --surface-0: oklch(0.968 0.006 85);
+  --surface-1: oklch(0.993 0.003 85);
+  --surface-2: oklch(0.962 0.006 85);
+  --surface-3: oklch(0.925 0.008 85);
+  --ink-1: oklch(0.24 0.012 85);
+  --ink-2: oklch(0.43 0.012 85);
+  --ink-3: oklch(0.53 0.01 85);
+  --line: oklch(0.3 0.012 85 / 0.12);
+  --line-strong: oklch(0.3 0.012 85 / 0.22);
+  --focus: oklch(0.55 0.16 255);
+  --caution-ink: oklch(0.43 0.085 70);
+  --caution-wash: oklch(0.955 0.04 85);
+  --error-ink: oklch(0.5 0.15 30);
+  --scale-1: oklch(0.24 0.012 85 / 0.1);
+  --scale-2: oklch(0.24 0.012 85 / 0.18);
+  --scale-3: oklch(0.24 0.012 85 / 0.3);
+  --scale-4: oklch(0.24 0.012 85 / 0.45);
+
+  --group-violent: #ae2c77;
+  --group-property: #d29922;
+  --group-vehicle: #4064b9;
+  --group-weapons: #00a29f;
+  --group-other: #83807a;
+
+  --shadow-float: 0 1px 2px oklch(0.2 0.01 85 / 0.08), 0 6px 20px oklch(0.2 0.01 85 / 0.12);
+  --shadow-sheet: 0 -1px 0 oklch(0.2 0.01 85 / 0.06), 0 -10px 30px oklch(0.2 0.01 85 / 0.14);
+
+  --text-xs: 0.75rem;
+  --text-s: 0.8125rem;
+  --text-m: 0.9375rem;
+  --text-l: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.625rem;
+
+  --radius-s: 8px;
+  --radius-m: 12px;
+  --radius-l: 16px;
+  --radius-xl: 22px;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --panel-width: 400px;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-0: oklch(0.17 0.006 85);
+  --surface-1: oklch(0.205 0.006 85);
+  --surface-2: oklch(0.25 0.007 85);
+  --surface-3: oklch(0.3 0.008 85);
+  --ink-1: oklch(0.95 0.006 85);
+  --ink-2: oklch(0.8 0.008 85);
+  --ink-3: oklch(0.68 0.008 85);
+  --line: oklch(0.95 0.01 85 / 0.11);
+  --line-strong: oklch(0.95 0.01 85 / 0.2);
+  --focus: oklch(0.74 0.13 255);
+  --caution-ink: oklch(0.85 0.09 85);
+  --caution-wash: oklch(0.3 0.04 80);
+  --error-ink: oklch(0.75 0.13 30);
+  --scale-1: oklch(0.95 0.006 85 / 0.12);
+  --scale-2: oklch(0.95 0.006 85 / 0.2);
+  --scale-3: oklch(0.95 0.006 85 / 0.32);
+  --scale-4: oklch(0.95 0.006 85 / 0.48);
+
+  --group-violent: #b13a80;
+  --group-property: #b88715;
+  --group-vehicle: #5176cd;
+  --group-weapons: #27a98e;
+  --group-other: #89867f;
+
+  --shadow-float: 0 1px 2px oklch(0 0 0 / 0.3), 0 8px 24px oklch(0 0 0 / 0.4);
+  --shadow-sheet: 0 -1px 0 oklch(1 0 0 / 0.06), 0 -10px 30px oklch(0 0 0 / 0.45);
+}

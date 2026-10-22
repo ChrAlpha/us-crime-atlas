@@ -106,16 +106,6 @@ export function ChevronIcon(props: IconProps) {
   );
 }
 
-export function SlidersIcon(props: IconProps) {
-  return (
-    <IconFrame {...props}>
-      <path d="M4 7h5M15 7h5M4 17h3M13 17h7" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
-      <circle cx="12" cy="7" r="2.1" stroke="currentColor" strokeWidth="1.6" />
-      <circle cx="10" cy="17" r="2.1" stroke="currentColor" strokeWidth="1.6" />
-    </IconFrame>
-  );
-}
-
 export function WarningIcon(props: IconProps) {
   return (
     <IconFrame {...props}>
@@ -126,11 +116,36 @@ export function WarningIcon(props: IconProps) {
   );
 }
 
-export function LayersIcon(props: IconProps) {
+export function ArrowRightIcon(props: IconProps) {
   return (
     <IconFrame {...props}>
-      <path d="m4.2 9 7.8-4.2L19.8 9 12 13.2 4.2 9Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.6" />
-      <path d="m5.1 13.2 6.9 3.7 6.9-3.7M5.1 16.3 12 20l6.9-3.7" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" />
+      <path d="M5 12h13.5M13 6.5l5.5 5.5-5.5 5.5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+    </IconFrame>
+  );
+}
+
+export function CheckIcon(props: IconProps) {
+  return (
+    <IconFrame {...props}>
+      <path d="m5.5 12.5 4.2 4.2 8.8-9.4" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.9" />
+    </IconFrame>
+  );
+}
+
+export function ClockIcon(props: IconProps) {
+  return (
+    <IconFrame {...props}>
+      <circle cx="12" cy="12" r="8.2" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M12 7.5V12l3 2" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" />
+    </IconFrame>
+  );
+}
+
+export function PinIcon(props: IconProps) {
+  return (
+    <IconFrame {...props}>
+      <path d="M12 21c-.7-3.4-2.4-5.7-4.3-7.8a6.3 6.3 0 1 1 8.6 0c-1.9 2.1-3.6 4.4-4.3 7.8Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.6" />
+      <circle cx="12" cy="9" r="2.2" stroke="currentColor" strokeWidth="1.6" />
     </IconFrame>
   );
 }

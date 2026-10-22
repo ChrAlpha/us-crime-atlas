@@ -1,0 +1,127 @@
+.filters {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.filter {
+  position: relative;
+  min-width: 0;
+}
+
+.filter__chip {
+  display: inline-flex;
+  height: 36px;
+  max-width: 100%;
+  align-items: center;
+  gap: 2px;
+  padding: 0 8px 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface-1);
+  font-size: var(--text-s);
+  font-weight: 650;
+  white-space: nowrap;
+  transition: background-color 150ms var(--ease-out), border-color 150ms var(--ease-out);
+}
+
+.filter__chip:hover,
+.filter__chip.is-open {
+  border-color: var(--ink-3);
+  background: var(--surface-2);
+}
+
+.filter__chevron {
+  color: var(--ink-3);
+  transition: transform 200ms var(--ease-out);
+}
+
+.filter__chip.is-open .filter__chevron {
+  transform: rotate(180deg);
+}
+
+.atlas--compact .filters {
+  margin-top: 8px;
+}
+
+.atlas--compact .filter__chip {
+  height: 44px;
+  border-color: transparent;
+  box-shadow: var(--shadow-float);
+}
+
+.filter__popover {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 6px);
+  left: 0;
+  width: max-content;
+  min-width: 240px;
+  max-width: min(320px, calc(100vw - 16px));
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-float);
+  animation: menu-in 160ms var(--ease-out);
+}
+
+.filter:last-child .filter__popover {
+  right: 0;
+  left: auto;
+}
+
+.filter__title {
+  margin: 6px 10px 4px;
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+  font-weight: 650;
+}
+
+.filter__option {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--radius-m);
+  text-align: left;
+  background: none;
+}
+
+.filter__option:hover {
+  background: var(--surface-2);
+}
+
+.filter__option-text {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+}
+
+.filter__option-text strong {
+  font-size: var(--text-m);
+  font-weight: 600;
+}
+
+.filter__option-text small {
+  color: var(--ink-2);
+  font-size: var(--text-s);
+}
+
+.filter__check {
+  flex: none;
+  color: var(--ink-1);
+  opacity: 0;
+}
+
+.filter__option[aria-pressed="true"] .filter__check {
+  opacity: 1;
+}
+
+.filter__option[aria-pressed="false"] .swatch {
+  background: none;
+  box-shadow: inset 0 0 0 2px var(--swatch);
+}

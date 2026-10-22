@@ -1,144 +1,105 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { mockOfficialSources } from './fixtures';
-
-async function expectMinimumTargetHeight(locator: Locator, minimum = 44): Promise<void> {
-  const count = await locator.count();
-  for (let index = 0; index < count; index += 1) {
-    const box = await locator.nth(index).boundingBox();
-    expect(box).not.toBeNull();
-    expect(box!.height).toBeGreaterThanOrEqual(minimum);
-  }
-}
-
-async function expectMapReady(page: Page, theme: 'light' | 'dark' = 'light'): Promise<void> {
-  await expect(page.getByLabel('Interactive map of published crime incident locations')).toBeVisible();
-  await expect(page.locator('.map-canvas')).toHaveCSS('position', 'absolute');
-  await expect(page.locator('.map-stage')).toHaveAttribute('data-map-theme', theme);
-  await expect(page.locator('.map-stage')).toHaveAttribute('data-map-ready', 'true');
-}
+import {
+  expectMapReady,
+  expectMinimumTargetHeight,
+  isMobile,
+  openFilter,
+  openTab,
+  raisePanel,
+} from './helpers';
 
 test('captures primary visual states at each product viewport', async ({ page }, testInfo) => {
+  const name = testInfo.project.name;
   await mockOfficialSources(page);
   await page.goto('/?e2e=1');
   await expect(page.getByTestId('reported-count')).toHaveText('5');
   await expectMapReady(page);
+  await page.screenshot({ path: `test-results/${name}-viewport-light.png` });
 
-  await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-light.png` });
-
-  const searchPanel = await page.getByLabel('Place and analysis controls').boundingBox();
-  const evidencePanel = await page.getByTestId('evidence-panel').boundingBox();
-  expect(searchPanel).not.toBeNull();
-  expect(evidencePanel).not.toBeNull();
-  const mapControls = await page.locator('.maplibregl-ctrl-top-right').boundingBox();
-  expect(mapControls).not.toBeNull();
-  if (testInfo.project.name.startsWith('desktop')) {
-    expect(searchPanel!.height).toBeLessThan(760);
-    expect(mapControls!.x + mapControls!.width).toBeLessThan(evidencePanel!.x);
-  }
-  if (testInfo.project.name === 'tablet-chromium') {
-    const mapWorkArea = evidencePanel!.x - (searchPanel!.x + searchPanel!.width);
-    expect(mapWorkArea).toBeGreaterThanOrEqual(350);
-    expect(mapControls!.x + mapControls!.width).toBeLessThan(evidencePanel!.x);
-  }
-  if (testInfo.project.name === 'tablet-compact-chromium') {
-    const mapStage = await page.locator('.map-stage').boundingBox();
-    expect(mapStage).not.toBeNull();
-    expect(mapStage!.width).toBeGreaterThanOrEqual(900);
-    expect(mapStage!.y).toBeGreaterThanOrEqual(searchPanel!.y + searchPanel!.height);
+  const panel = await page.getByTestId('evidence-panel').boundingBox();
+  const map = await page.locator('.map-stage').boundingBox();
+  expect(panel).not.toBeNull();
+  expect(map).not.toBeNull();
+  if (isMobile(testInfo)) {
+    // The map fills the screen; the sheet rests over its lower part.
+    expect(map!.width).toBe(page.viewportSize()!.width);
+    await expectMinimumTargetHeight(page.locator('.search__submit, .filter__chip, .locate-button'));
+    await expectMinimumTargetHeight(page.locator('.sheet__handle'), 24);
+  } else {
+    // A docked panel beside a map that keeps most of the width.
+    expect(map!.x).toBeGreaterThanOrEqual(panel!.x + panel!.width - 1);
+    expect(map!.width).toBeGreaterThanOrEqual(page.viewportSize()!.width * 0.6);
+    await expect(page.getByRole('group', { name: 'Map key' })).toBeVisible();
   }
 
-  if (testInfo.project.name.startsWith('mobile')) {
-    expect(evidencePanel!.y).toBeLessThan(page.viewportSize()!.height - 48);
-    await expectMinimumTargetHeight(page.locator('.brand-bar .icon-button, .locate-button, .place-search button'));
-    await expectMinimumTargetHeight(page.locator('.featured-places button'));
-    await expectMinimumTargetHeight(page.locator('.source-card > a, .source-card__method'));
-    const settingsToggle = page.getByRole('button', { name: 'Analysis settings' });
-    await settingsToggle.click();
-    await expectMinimumTargetHeight(page.locator('.analysis-controls button'));
-    await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-controls.png` });
-    await settingsToggle.click();
-  }
+  await openFilter(page, /^All types/);
+  if (isMobile(testInfo)) await expectMinimumTargetHeight(page.locator('.filter__option'));
+  await page.screenshot({ path: `test-results/${name}-viewport-filters.png` });
+  await page.keyboard.press('Escape');
 
-  await page.getByRole('button', { name: 'Sources & methodology' }).first().click();
-  await expect(page.getByRole('dialog', { name: 'Sources & methodology' })).toBeVisible();
-  if (testInfo.project.name.startsWith('mobile')) {
-    await expectMinimumTargetHeight(page.locator('.provider-card__title a'));
-  }
-  await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-sources.png` });
-  if (testInfo.project.name.startsWith('mobile')) {
-    await page.locator('.formula-card').evaluate((element) => {
-      element.scrollIntoView({ block: 'center' });
-    });
-    await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-source-method.png` });
-  }
-  await page.getByRole('button', { name: 'Close sources and methodology' }).click();
+  await page.locator('#place-query').click();
+  await expect(page.getByRole('region', { name: 'Search suggestions' })).toBeVisible();
+  await page.screenshot({ path: `test-results/${name}-viewport-search.png` });
+  await page.keyboard.press('Escape');
 
-  await page.getByRole('button', { name: 'Switch to dark theme' }).click();
+  await openTab(page, testInfo, 'Overview');
+  await page.screenshot({ path: `test-results/${name}-viewport-overview.png` });
+
+  await openTab(page, testInfo, 'About the data');
+  if (isMobile(testInfo)) {
+    await expectMinimumTargetHeight(page.locator('.covered .button, .segmented button'));
+  }
+  await page.screenshot({ path: `test-results/${name}-viewport-about.png` });
+
+  await page.getByRole('group', { name: 'Appearance' }).getByRole('button', { name: 'Dark' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await expectMapReady(page, 'dark');
-  if (testInfo.project.name.startsWith('mobile')) {
-    await page.getByTestId('evidence-panel').evaluate((element) => {
-      element.scrollIntoView({ block: 'start' });
-    });
-  }
-  await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-dark.png` });
+  await openTab(page, testInfo, 'Overview');
+  await page.screenshot({ path: `test-results/${name}-viewport-dark.png` });
 });
 
 test('captures source failure and unsupported-place states', async ({ page }, testInfo) => {
-  const usesOverlayPanels = testInfo.project.name === 'desktop-chromium'
-    || testInfo.project.name === 'tablet-chromium';
+  const name = testInfo.project.name;
   await mockOfficialSources(page, 'error');
   await page.goto('/?e2e=1');
-  await expect(page.getByRole('alert')).toContainText('Official data could not be loaded');
-  await expect(page.locator('.brand-status')).toContainText('Source unavailable');
-  await expect(page.locator('.provider-strip')).toContainText('temporarily unavailable');
+  await expect(page.getByRole('alert')).toContainText("Couldn't load New York City police records");
   await expectMapReady(page);
-  if (usesOverlayPanels) {
-    const panel = await page.getByTestId('evidence-panel').boundingBox();
-    expect(panel).not.toBeNull();
-    expect(panel!.height).toBeLessThan(400);
-  }
-  await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-error.png` });
-  if (testInfo.project.name.startsWith('mobile')) {
-    await page.locator('.state-card').evaluate((element) => element.scrollIntoView({ block: 'center' }));
-    await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-error-detail.png` });
-  }
+  // On phones the retry action is reachable without raising the sheet.
+  await expect(page.getByRole('button', { name: 'Try again' })).toBeInViewport();
+  await page.screenshot({ path: `test-results/${name}-viewport-error.png` });
 
   await page.goto('/?e2e=1&lat=35.4676&lng=-97.5164&place=Oklahoma+City&detail=Oklahoma');
-  await expect(page.getByTestId('jurisdiction-band')).toContainText('Oklahoma City Police Department');
-  await expect(page.locator('.brand-status')).toContainText('FBI jurisdiction totals');
+  await expect(page.locator('.place__source')).toContainText('Oklahoma City Police Department');
+  await expect(page.getByTestId('jurisdiction-finding')).toBeVisible();
   await expectMapReady(page);
-  await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-jurisdiction.png` });
-  if (testInfo.project.name.startsWith('mobile')) {
-    await page.getByTestId('jurisdiction-band').evaluate((element) => element.scrollIntoView({ block: 'center' }));
-    await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-jurisdiction-detail.png` });
-  }
+  await expect(page.getByRole('group', { name: 'Map key' })).toHaveCount(0);
+  // On phones the answer is readable without raising the sheet.
+  await expect(page.locator('.finding__headline')).toBeInViewport();
+  await page.screenshot({ path: `test-results/${name}-viewport-jurisdiction.png` });
+  await raisePanel(page, testInfo);
+  await expect(page.getByRole('heading', { name: 'Month by month' })).toBeAttached();
+  await page.screenshot({ path: `test-results/${name}-viewport-jurisdiction-detail.png` });
 
   await page.goto('/?e2e=1&lat=43.6532&lng=-79.3832&place=Toronto&detail=Ontario');
   await expect(page.getByTestId('outside-coverage')).toBeVisible();
-  await expect(page.locator('.brand-status')).toContainText('Map only');
+  await expect(page.locator('.place__source')).toContainText('Map only');
   await expectMapReady(page);
-  if (usesOverlayPanels) {
-    const panel = await page.getByTestId('evidence-panel').boundingBox();
-    expect(panel).not.toBeNull();
-    expect(panel!.height).toBeLessThan(400);
-  }
-  await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-unsupported.png` });
-  if (testInfo.project.name.startsWith('mobile')) {
-    await page.locator('.state-card').evaluate((element) => element.scrollIntoView({ block: 'center' }));
-    await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-unsupported-detail.png` });
-  }
+  await page.screenshot({ path: `test-results/${name}-viewport-outside.png` });
+  await raisePanel(page, testInfo);
+  // Without any data here, the list of covered cities is unfolded.
+  await expect(page.getByRole('button', { name: 'Go to Times Square' })).toBeVisible();
+  await page.screenshot({ path: `test-results/${name}-viewport-outside-detail.png` });
 });
 
-test('captures selected raw-report evidence', async ({ page }, testInfo) => {
+test('captures an expanded report', async ({ page }, testInfo) => {
   await mockOfficialSources(page);
   await page.goto('/?e2e=1');
   await expect(page.getByTestId('reported-count')).toHaveText('5');
   await expectMapReady(page);
-  await page.locator('.incident-list button').first().click();
-  const selectedIncident = page.locator('.selected-incident');
-  await expect(selectedIncident).toBeVisible();
-  await selectedIncident.scrollIntoViewIfNeeded();
+  await openTab(page, testInfo, 'Reports');
+  await page.locator('.report').first().click();
+  await expect(page.locator('.report__details')).toBeVisible();
   await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-selected-report.png` });
 });
 
@@ -173,19 +134,18 @@ test('captures the lazy map loading state without layout shift', async ({ page }
   expect(readyStage!.height).toBe(loadingStage!.height);
 });
 
-test('captures the mobile filter guardrail toast', async ({ page }, testInfo) => {
-  test.skip(!testInfo.project.name.startsWith('mobile'), 'Mobile visual state');
+test('captures the report-type guardrail toast', async ({ page }, testInfo) => {
   await mockOfficialSources(page);
   await page.goto('/?e2e=1');
   await expect(page.getByTestId('reported-count')).toHaveText('5');
-  await page.getByRole('button', { name: 'Analysis settings' }).click();
-  const groupFilters = page.locator('.filter-chips');
+  await openFilter(page, /^All types/);
+  const options = page.locator('.filter__popover');
   for (const group of ['Property', 'Vehicle', 'Weapons', 'Other']) {
-    await groupFilters.getByRole('button', { name: group, exact: true }).click();
+    await options.getByRole('button', { name: new RegExp(`^${group}`) }).click();
   }
-  await groupFilters.getByRole('button', { name: 'Violent', exact: true }).click();
-  const toast = page.getByRole('status').filter({ hasText: 'At least one published incident group' });
+  await options.getByRole('button', { name: /^Violent/ }).click();
+  const toast = page.getByRole('status').filter({ hasText: 'Keep at least one type of report selected.' });
   await expect(toast).toBeVisible();
-  await expectMinimumTargetHeight(toast.getByRole('button', { name: 'Dismiss message' }));
-  await page.screenshot({ path: 'test-results/mobile-chromium-viewport-guardrail-toast.png' });
+  if (isMobile(testInfo)) await expectMinimumTargetHeight(toast.getByRole('button', { name: 'Dismiss message' }));
+  await page.screenshot({ path: `test-results/${testInfo.project.name}-viewport-guardrail-toast.png` });
 });

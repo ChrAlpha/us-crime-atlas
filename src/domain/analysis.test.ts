@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import type { AreaCoverage, CrimeCategory, CrimeGroup, EvidenceTruncation, EvidenceWindow, Incident } from '../types';
 import {
   analyzeIncidents,
-  BAND_COPY,
   COMPARISON_RADIUS_MULTIPLIER,
   evidenceBand,
   evidenceConfidence,
@@ -121,13 +120,6 @@ describe('evidence bands and confidence', () => {
   ] as const)('grades sample %s (truncated %s) as %s', (sample, truncated, confidence) => {
     expect(evidenceConfidence(sample, truncated)).toBe(confidence);
   });
-
-  it('documents every band', () => {
-    for (const band of ['lower', 'similar', 'elevated', 'markedly-elevated', 'insufficient'] as const) {
-      expect(BAND_COPY[band].label).toBeTruthy();
-      expect(BAND_COPY[band].detail).toBeTruthy();
-    }
-  });
 });
 
 describe('analyzeIncidents', () => {
@@ -145,7 +137,6 @@ describe('analyzeIncidents', () => {
     expect(result.band).toBe('markedly-elevated');
     expect(result.relativeActivity).toBeGreaterThan(2);
     expect(result.confidence).toBe('low');
-    expect(BAND_COPY[result.band].label).toContain('Markedly');
   });
 
   it('returns similar when inner and annulus weighted density match', () => {
@@ -300,6 +291,66 @@ describe('analyzeIncidents', () => {
       { category: 'assault', count: 1, share: 0.25 },
       { category: 'robbery', count: 1, share: 0.25 },
     ]);
+  });
+
+  it('breaks selected-area reports down by every group in a fixed order, zero counts included', () => {
+    const result = analyze([
+      daysBefore('robbery', 'robbery', 1, INSIDE),
+      daysBefore('assault', 'assault', 1, INSIDE),
+      daysBefore('homicide', 'homicide', 1, INSIDE),
+      daysBefore('theft', 'theft', 1, INSIDE),
+      daysBefore('weapons', 'weapons', 2, INSIDE),
+      // Only current reports inside the circle count.
+      daysBefore('nearby-vehicle', 'vehicle', 1, NEARBY),
+      daysBefore('previous-vehicle', 'vehicle', 40, INSIDE),
+    ]);
+    expect(result.groupBreakdown).toEqual([
+      { group: 'violent', count: 3, share: 0.6 },
+      { group: 'property', count: 1, share: 0.2 },
+      { group: 'vehicle', count: 0, share: 0 },
+      { group: 'weapons', count: 1, share: 0.2 },
+      { group: 'other', count: 0, share: 0 },
+    ]);
+    expect(result.groupBreakdown.map((item) => item.group)).toEqual(CRIME_GROUPS);
+    expect(result.groupBreakdown.reduce((sum, item) => sum + item.count, 0)).toBe(result.currentCount);
+  });
+
+  it('keeps every group with a zero share when there are no selected-area reports', () => {
+    const result = analyze([daysBefore('nearby', 'theft', 1, NEARBY)]);
+    expect(result.currentCount).toBe(0);
+    expect(result.groupBreakdown).toEqual(CRIME_GROUPS.map((group) => ({ group, count: 0, share: 0 })));
+  });
+
+  it('leaves inactive groups at zero in the group breakdown', () => {
+    const result = analyze([
+      daysBefore('robbery', 'robbery', 1, INSIDE),
+      daysBefore('vehicle', 'vehicle', 1, INSIDE),
+    ], { activeGroups: ['violent'] });
+    expect(result.groupBreakdown.find((item) => item.group === 'violent')).toEqual({ group: 'violent', count: 1, share: 1 });
+    expect(result.groupBreakdown.find((item) => item.group === 'vehicle')).toEqual({ group: 'vehicle', count: 0, share: 0 });
+  });
+
+  it('counts timed selected-area reports by local hour in 24 buckets', () => {
+    const result = analyze([
+      daysBefore('midnight', 'theft', 1, INSIDE, 0),
+      daysBefore('late-1', 'theft', 1, INSIDE, 23),
+      daysBefore('late-2', 'robbery', 2, INSIDE, 23),
+      daysBefore('noon', 'theft', 3, INSIDE, 12),
+      daysBefore('untimed', 'theft', 1, INSIDE, null),
+      daysBefore('nearby', 'theft', 1, NEARBY, 12),
+      daysBefore('previous', 'theft', 40, INSIDE, 12),
+    ]);
+    expect(result.hourlyActivity).toHaveLength(24);
+    expect(result.hourlyActivity[0]).toBe(1);
+    expect(result.hourlyActivity[12]).toBe(1);
+    expect(result.hourlyActivity[23]).toBe(2);
+    expect(result.hourlyActivity.reduce((sum, count) => sum + count, 0)).toBe(result.currentCount - result.untimedCount);
+    expect(result.hourlyActivity.filter((count) => count === 0)).toHaveLength(21);
+  });
+
+  it('returns 24 empty hours without timed reports', () => {
+    expect(analyze([]).hourlyActivity).toEqual(Array.from({ length: 24 }, () => 0));
+    expect(analyze([daysBefore('untimed', 'theft', 1, INSIDE, null)]).hourlyActivity).toEqual(Array.from({ length: 24 }, () => 0));
   });
 
   it('reports zero densities and no comparison for a degenerate zero radius', () => {

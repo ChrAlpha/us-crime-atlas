@@ -7,17 +7,19 @@ const icons = Object.entries(Icons);
 describe('Icons', () => {
   it('exports the full icon set', () => {
     expect(icons.map(([name]) => name).sort()).toEqual([
+      'ArrowRightIcon',
       'AtlasIcon',
+      'CheckIcon',
       'ChevronIcon',
+      'ClockIcon',
       'CloseIcon',
       'ExternalIcon',
       'InfoIcon',
-      'LayersIcon',
       'LocateIcon',
       'MoonIcon',
+      'PinIcon',
       'RefreshIcon',
       'SearchIcon',
-      'SlidersIcon',
       'SunIcon',
       'WarningIcon',
     ]);

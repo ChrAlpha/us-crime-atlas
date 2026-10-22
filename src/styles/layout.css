@@ -1,0 +1,171 @@
+/*
+ * Wide screens: one docked column (search, settings, evidence) beside a full-height map.
+ * Phones (`.atlas--compact`): a full-screen map with floating search and a bottom sheet.
+ */
+
+.atlas {
+  display: grid;
+  width: 100%;
+  height: 100dvh;
+  grid-template-columns: var(--panel-width) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--surface-0);
+}
+
+@media (max-width: 1023px) {
+  :root {
+    --panel-width: 360px;
+  }
+}
+
+.topbar {
+  position: relative;
+  z-index: 30;
+  grid-column: 1;
+  grid-row: 1;
+  padding: 14px 20px 14px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-1);
+}
+
+.topbar__brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: -4px -8px 10px 0;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-m);
+  font-weight: 750;
+  letter-spacing: -0.01em;
+}
+
+.atlas__map {
+  position: relative;
+  min-width: 0;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  overflow: hidden;
+}
+
+.panel {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  grid-column: 1;
+  grid-row: 2;
+  overflow: hidden;
+  border-right: 1px solid var(--line);
+  background: var(--surface-1);
+}
+
+/*
+ * The panel moves and clips; this inner element scrolls. A transformed scroll container
+ * makes Chromium stop painting the map canvas beneath it.
+ */
+.panel__scroll {
+  position: relative;
+  min-height: 0;
+  flex: 1;
+  padding: 0 20px 40px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+/* ── Phones ──────────────────────────────────────────────────────────────── */
+
+.atlas--compact {
+  position: relative;
+  display: block;
+}
+
+.atlas--compact .atlas__map {
+  position: absolute;
+  inset: 0;
+}
+
+.atlas--compact .topbar {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top));
+  right: 8px;
+  left: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.atlas--compact .topbar__brand {
+  display: none;
+}
+
+.panel--sheet {
+  position: absolute;
+  z-index: 20;
+  top: calc(var(--top-inset) + 8px);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  border: 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  box-shadow: var(--shadow-sheet);
+  transform: translateY(var(--sheet-offset, 100%));
+  transition: transform 340ms var(--ease-out);
+  will-change: transform;
+}
+
+.panel--sheet.is-dragging {
+  transition: none;
+}
+
+.panel--sheet .panel__scroll {
+  height: var(--sheet-scroll-height, 100%);
+  flex: none;
+  padding: 0 16px max(24px, env(safe-area-inset-bottom));
+}
+
+.panel--sheet.is-peek .panel__scroll {
+  overflow: hidden;
+}
+
+.sheet__handle {
+  position: sticky;
+  z-index: 6;
+  top: 0;
+  display: grid;
+  width: calc(100% + 32px);
+  height: 28px;
+  margin: 0 -16px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  background: var(--surface-1);
+  cursor: grab;
+  touch-action: none;
+}
+
+.sheet__handle span {
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+
+.atlas--compact .place {
+  touch-action: none;
+}
+
+.atlas--compact .toast {
+  left: 50%;
+  bottom: calc(var(--sheet-visible) + 12px);
+}

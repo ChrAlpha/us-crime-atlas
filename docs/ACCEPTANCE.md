@@ -6,7 +6,7 @@ A change is release-ready only when the relevant automated gates pass and the vi
 
 - [ ] A supported featured place selects the correct local provider.
 - [ ] All registered provider bounds resolve to the intended agency and do not overlap an unrelated city.
-- [ ] A map click updates the analysis point and URL state.
+- [ ] A map click or a pin drag updates the analysis point and URL state.
 - [ ] Place search is submitted explicitly; it does not issue per-keystroke requests.
 - [ ] Radius options of 500 m, 1 km, and 2 km update the circle and analysis.
 - [ ] Window options of 14, 30, 60, and 90 days update current and previous equal windows.
@@ -14,9 +14,12 @@ A change is release-ready only when the relevant automated gates pass and the vi
 - [ ] A publisher whose newest record is three or more days old shows a delayed-feed notice instead of an empty or quiet-looking window.
 - [ ] Shared coordinates without a place name are labeled "Dropped pin", not a featured place.
 - [ ] At least one incident group remains active.
-- [ ] Cluster and point layers render normalized incidents.
-- [ ] Selecting a point or list row exposes the same underlying incident.
-- [ ] Unsupported locations show a clear coverage state and no fabricated result, including neighboring cities inside a provider's bounding box.
+- [ ] The answer leads in plain words with its comparison scale; no safety score or rating appears anywhere.
+- [ ] Report-location dots render normalized incidents, one dot per shared coordinate, sized by count and colored by the dominant type.
+- [ ] Selecting a map location shows its reports in the panel; selecting a list row expands it in place and focuses the map on the same location.
+- [ ] A selection clears when its location or list report leaves the filtered results.
+- [ ] Places without a local feed, including neighboring cities inside a provider's bounding box, show the FBI totals of the agency that polices them, compared with the state rate and marked as whole-jurisdiction, lower-precision figures; the radius, date, and type settings and the map's circle are hidden there.
+- [ ] Where no agency matches, only the statewide rate is shown, as context; points outside the states are map-only.
 - [ ] Analysis areas that cross city limits use only the covered area in densities and disclose the uncovered share; under 25% coverage withholds the comparison.
 - [ ] Network errors show source-specific failure text and a retry action.
 - [ ] The production bundle, served under the Pages subpath, loads every asset and starts the MapLibre worker (`pnpm run test:e2e:production`).
@@ -48,14 +51,15 @@ A change is release-ready only when the relevant automated gates pass and the vi
 
 ## Responsive UI and interaction
 
-- [ ] Desktop at 1440 × 960 keeps map, explorer, and evidence inspector usable simultaneously.
-- [ ] The featured strip (one place per registered city) remains usable without page-level overflow.
-- [ ] The source dialog remains usable with every provider card at desktop, tablet, and mobile widths.
-- [ ] iPhone-class viewport keeps 44 px-class primary touch targets and has no horizontal overflow.
-- [ ] The mobile layout keeps the map and evidence in one readable document flow, with collapsible analysis settings.
+- [ ] Widths from 768 px dock search, settings, and the place panel in a left column beside a map that keeps at least 60% of the width; the map key is shown when a feed is available.
+- [ ] Below 768 px the map fills the viewport under a floating search bar and setting chips, with the panel in a bottom sheet at peek, half, and full positions.
+- [ ] At peek, the sheet shows the place, the source line, and the answer without covering more than half the screen.
+- [ ] Map controls and the locate button follow the sheet, and the circle is framed inside the uncovered part of the map.
+- [ ] The search menu lists the nearest six covered places and filters every registered city as you type; the About tab folds the full city list behind one disclosure. Neither causes page-level overflow.
+- [ ] iPhone-class viewport keeps 44 px-class primary touch targets and has no horizontal overflow, including under wide fallback fonts.
 - [ ] Search and analysis controls remain reachable without trapping page scroll.
 - [ ] Safe-area insets are respected.
-- [ ] Light and dark themes preserve semantic incident colors and readable surfaces.
+- [ ] Light and dark themes preserve semantic incident colors and readable surfaces; the five type colors pass the colorblind palette check in both themes and are never the only cue.
 - [ ] Reduced-motion preference disables nonessential transitions and animations.
 
 ## Accessibility
@@ -63,7 +67,9 @@ A change is release-ready only when the relevant automated gates pass and the vi
 - [ ] Search has a programmatic label and submit control.
 - [ ] Toggle states expose `aria-pressed` or `aria-expanded`.
 - [ ] Loading, error, and update states are announced.
-- [ ] Dialog has a name, modal semantics, Escape close behavior, and an explicit close button.
+- [ ] Setting popovers and the search menu close with Escape; popovers return focus to their chip.
+- [ ] Panel tabs follow the ARIA tabs pattern with arrow, Home, and End keys.
+- [ ] The sheet handle exposes `aria-expanded` and names the position it moves to.
 - [ ] Keyboard focus is visible.
 - [ ] Provider cards and official-source links have distinct accessible names.
 - [ ] Axe reports no serious or critical violations outside third-party MapLibre controls/canvas.
@@ -83,9 +89,9 @@ A change is release-ready only when the relevant automated gates pass and the vi
 
 The browser job retains:
 
-- a full-page overview screenshot for each browser project (`<project>-overview.png`) and the mobile document-flow screenshot (`mobile-chromium-expanded.png`);
-- viewport screenshots for each project from `e2e/visual.spec.ts`: light and dark themes, controls, the sources dialog and its methodology section, source failure, unsupported place, a selected report, map failure, map loading, and the mobile guardrail toast (`<project>-viewport-*.png`);
+- an overview screenshot for each browser project (`<project>-overview.png`) and the covered-cities list (`<project>-covered-cities.png`);
+- viewport screenshots for each project from `e2e/visual.spec.ts`: light and dark themes, setting popovers, the search menu, the Overview and About tabs, source failure, unsupported place and its detail, an expanded report, map failure, map loading, and the guardrail toast (`<project>-viewport-*.png`);
 - Playwright HTML report;
 - trace, video, and failure screenshot when a retry or failure occurs.
 
-Review screenshots for overlap, clipped text, cramped controls, accidental red-heavy styling, unreadable map points, featured-place truncation, source-card density, and mismatched light/dark surfaces before merge.
+Review screenshots for overlap, clipped text, cramped controls, accidental red-heavy or alarming styling, unreadable map dots, sheet peek height, controls hidden behind the sheet, and mismatched light/dark surfaces before merge.
